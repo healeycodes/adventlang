@@ -11,23 +11,22 @@ import (
 
 func main() {
 	flag.Parse()
-	file := flag.Arg(0)
-	if file == "" {
+	filename := flag.Arg(0)
+	if filename == "" {
 		panic("missing file arg")
 	}
 
-	b, err := ioutil.ReadFile(file)
+	b, err := ioutil.ReadFile(filename)
 	if err != nil {
-		println("while parsing %v: %v\n", file, err)
-		os.Exit(1)
-	}
-	source := string(b)
-
-	result, err := sauropod.RunProgram(source)
-	if err != nil {
-		fmt.Printf("while running %v: %v\n", file, err)
+		println("couldn't read %v: %v\n", filename, err)
 		os.Exit(1)
 	}
 
-	fmt.Println(*result)
+	result, err := sauropod.RunProgram(filename, string(b))
+	if err != nil {
+		fmt.Printf("while running %v: %v\n", filename, err)
+		os.Exit(1)
+	}
+
+	fmt.Println(result)
 }

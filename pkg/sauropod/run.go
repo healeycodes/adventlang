@@ -1,10 +1,22 @@
 package sauropod
 
+import "fmt"
+
 const VERSION = 0.1
 
-func RunProgram(source string) (*string, error) {
-	println(source)
+func RunProgram(filename string, source string) (string, error) {
+	program, err := GenerateAST(source)
+	if err != nil {
+		return "", err
+	}
 
-	ret := ""
-	return &ret, nil
+	context := Context{}
+	context.Init(filename)
+
+	result, err := program.Eval((&context.stackFrame))
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%v", result), nil
 }
