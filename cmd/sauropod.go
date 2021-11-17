@@ -18,13 +18,13 @@ func main() {
 
 	b, err := ioutil.ReadFile(filename)
 	if err != nil {
-		println("couldn't read %v: %v\n", filename, err)
+		println("error reading:", filename, err.Error())
 		os.Exit(1)
 	}
 
 	result, err := sauropod.RunProgram(filename, string(b))
 	if err != nil {
-		fmt.Printf("while running %v: %v\n", filename, err)
+		println("error:", err.Error())
 		os.Exit(1)
 	}
 

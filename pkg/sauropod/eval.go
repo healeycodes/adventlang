@@ -2,6 +2,7 @@ package sauropod
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 )
@@ -13,7 +14,7 @@ type StackFrame struct {
 }
 
 func traceError(frame *StackFrame, position string, message string) error {
-	s := frame.trace + "\n\t " + position + " " + message
+	s := frame.trace + "\n" + position + " " + message
 	for {
 		if parent := frame.parent; parent != nil {
 			frame = parent
@@ -68,7 +69,7 @@ func (frame *StackFrame) Get(key string) (Value, error) {
 			break
 		}
 	}
-	return nil, fmt.Errorf("missing key: %v", key)
+	return nil, fmt.Errorf("variable not declared: %v", key)
 }
 
 // Set a variable by looking through every scope (bottom to top)
@@ -214,6 +215,36 @@ func (boolValue BoolValue) Equals(other Value) (bool, error) {
 	return false, nil
 }
 
+type DictValue struct {
+	val map[string]*Value
+}
+
+func (dictValue *DictValue) Get(key string) (*Value, error) {
+	value, ok := dictValue.val[key]
+	if ok {
+		return value, nil
+	}
+	return nil, fmt.Errorf("key missing from dictionary: %v", key)
+}
+
+func (dictValue *DictValue) Set(key string, value Value) {
+	dictValue.val[key] = &value
+}
+
+func (dictValue DictValue) String() string {
+	s := make([]string, 0)
+	s = append(s, "{")
+	for key, value := range dictValue.val {
+		s = append(s, fmt.Sprintf("\"%v\": %v", key, *value))
+	}
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+
+func (_ DictValue) Equals(_ Value) (bool, error) {
+	return false, nil
+}
+
 // ---
 
 func (program Program) String() string {
@@ -343,8 +374,9 @@ func (assignment Assignment) Eval(frame *StackFrame) (Value, error) {
 	leftRef, leftRefOk := left.(ReferenceValue)
 
 	if assignment.Op == nil {
-		if leftRefOk {
-			return *leftRef.val, nil
+		// Are we a naked variable?
+		if leftId, okId := left.(IdentifierValue); okId {
+			return frame.Get(leftId.val)
 		}
 		return left, nil
 	}
@@ -366,10 +398,16 @@ func (assignment Assignment) Eval(frame *StackFrame) (Value, error) {
 		return right, nil
 	}
 	if leftId, okId := left.(IdentifierValue); okId {
+		if assignment.Let == nil {
+			_, err = frame.Get(leftId.val)
+			if err != nil {
+				return nil, traceError(frame, assignment.LogicAnd.Pos.String(), "can't assign to unknown variable: "+left.String())
+			}
+		}
 		frame.Set(leftId.val, right)
 		return right, nil
 	}
-	return nil, traceError(frame, assignment.LogicAnd.Pos.String(), "can't assign to non-identifier: "+left.String())
+	return nil, traceError(frame, assignment.LogicAnd.Pos.String(), "can't assign to non-variable: "+left.String())
 }
 
 func (logicAnd LogicAnd) String() string {
@@ -501,6 +539,8 @@ func (equality Equality) Eval(frame *StackFrame) (Value, error) {
 		right = value
 	}
 
+	// TODO: Check for equal dicts, lists, funcs here
+
 	result, err := left.Equals(right)
 	if err != nil {
 		return nil, err
@@ -551,15 +591,7 @@ func (comparison Comparison) Eval(frame *StackFrame) (Value, error) {
 				*comparison.Op == ">=" && leftNum.val >= rightNum.val}, nil
 		}
 	}
-	leftType, err := getType([]Value{left})
-	if err != nil {
-		return nil, err
-	}
-	rightType, err := getType([]Value{right})
-	if err != nil {
-		return nil, err
-	}
-	return nil, traceError(frame, comparison.Addition.Pos.String(), "only numbers can be compared with "+*comparison.Op+"  found: "+leftType.String()+" and "+rightType.String())
+	return nil, traceError(frame, comparison.Addition.Pos.String(), "only numbers can be compared with "+*comparison.Op+"  found: "+left.String()+" and "+right.String())
 }
 
 func (addition Addition) String() string {
@@ -575,9 +607,11 @@ func (addition Addition) Eval(frame *StackFrame) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if addition.Op == nil {
 		return left, nil
 	}
+
 	right, err := addition.Next.Eval(frame)
 	if err != nil {
 		return nil, err
@@ -587,6 +621,7 @@ func (addition Addition) Eval(frame *StackFrame) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	right, err = unwrap(right, frame)
 	if err != nil {
 		return nil, err
@@ -597,10 +632,9 @@ func (addition Addition) Eval(frame *StackFrame) (Value, error) {
 
 	leftStr, okLeft := left.(StringValue)
 	rightStr, okRight := right.(StringValue)
-	if *addition.Op == "+" {
-		if okLeft && !okRight || okRight && !okLeft {
-			return nil, err
-		}
+	if *addition.Op == "+" && (okLeft && !okRight || okRight && !okLeft) {
+		return nil, err
+	} else if *addition.Op == "+" && okLeft && okRight {
 		return StringValue{val: append([]byte{}, append(leftStr.val, rightStr.val...)...)}, nil
 	}
 
@@ -615,5 +649,180 @@ func (addition Addition) Eval(frame *StackFrame) (Value, error) {
 	if *addition.Op == "-" && okLeft && okRight {
 		return NumberValue{val: leftNum.val - rightNum.val}, nil
 	}
+	if *addition.Op == "-" {
+		return nil, traceError(frame, addition.Multiplication.Pos.String(),
+			"'-' and '+' can only be used between [number, number], not: ["+left.String()+", "+right.String()+"]")
+	}
 	return nil, err
+}
+
+func (multiplication Multiplication) String() string {
+	return "multiplication"
+}
+
+func (multiplication Multiplication) Equals(other Value) (bool, error) {
+	return false, nil
+}
+
+func (multiplication Multiplication) Eval(frame *StackFrame) (Value, error) {
+	left, err := multiplication.Unary.Eval(frame)
+	if err != nil {
+		return nil, err
+	}
+	if multiplication.Op == nil {
+		return left, nil
+	}
+	right, err := multiplication.Next.Eval(frame)
+	if err != nil {
+		return nil, err
+	}
+
+	left, err = unwrap(left, frame)
+	if err != nil {
+		return nil, err
+	}
+	right, err = unwrap(right, frame)
+	if err != nil {
+		return nil, err
+	}
+
+	err = traceError(frame, multiplication.Unary.Pos.String(),
+		"'*' and '/' can only be used between [string, string], [number, number], [list, list], not: ["+left.String()+", "+right.String()+"]")
+
+	leftNum, okLeft := left.(NumberValue)
+	if !okLeft {
+		return nil, err
+	}
+	rightNum, okRight := right.(NumberValue)
+	if !okRight {
+		return nil, err
+	}
+	if *multiplication.Op == "*" {
+		return NumberValue{val: leftNum.val * rightNum.val}, nil
+	}
+	if *multiplication.Op == "/" {
+		return NumberValue{val: leftNum.val / rightNum.val}, nil
+	}
+	if *multiplication.Op == "%" {
+		return NumberValue{val: float64(int(math.Round(leftNum.val)) % int(math.Round(rightNum.val)))}, nil
+	}
+	panic("unreachable")
+}
+
+func (unary Unary) Eval(frame *StackFrame) (Value, error) {
+	if unary.Op == nil {
+		return unary.Primary.Eval(frame)
+	}
+	if *unary.Op == "!" {
+		value, err := unary.Unary.Eval(frame)
+		if err != nil {
+			return nil, err
+		}
+		value, err = unwrap(value, frame)
+		if err != nil {
+			return nil, err
+		}
+		if boolValue, ok := value.(BoolValue); ok {
+			return BoolValue{val: !boolValue.val}, nil
+		}
+		return nil, traceError(frame, unary.Unary.Pos.String(), "expected bool after '!', found"+value.String())
+	}
+	if *unary.Op == "-" {
+		value, err := unary.Unary.Eval(frame)
+		if err != nil {
+			return nil, err
+		}
+		value, err = unwrap(value, frame)
+		if err != nil {
+			return nil, err
+		}
+		if numberValue, ok := value.(NumberValue); ok {
+			return NumberValue{val: -numberValue.val}, nil
+		}
+		return nil, traceError(frame, unary.Unary.Pos.String(), "expected bool after '-', found"+value.String())
+	}
+	panic("unreachable")
+}
+
+func (primary Primary) String() string {
+	return "primary"
+}
+
+func (primary Primary) Eval(frame *StackFrame) (Value, error) {
+	// Func          *FuncLiteral   `@@`
+	// List          *ListLiteral   `| @@`
+	if primary.Dict != nil {
+		return primary.Dict.Eval(frame)
+	}
+	// Call          *Call          `| @@`
+	// SubExpression *SubExpression `| @@`
+	if primary.Number != nil {
+		return NumberValue{val: *primary.Number}, nil
+	}
+	if primary.Str != nil {
+		// TODO: Parse strings without including quote `"` marks
+		return StringValue{val: []byte(*primary.Str)[1 : len((*primary.Str))-1]}, nil
+	}
+	if primary.True != nil {
+		return BoolValue{val: true}, nil
+	}
+	if primary.False != nil {
+		return BoolValue{val: false}, nil
+	}
+	if primary.Undefined != nil {
+		return UndefinedValue{}, nil
+	}
+	if ident := primary.Ident; ident != nil {
+		identifierValue := IdentifierValue{val: *ident}
+		return identifierValue, nil
+	}
+	panic("unimplemented")
+}
+
+// type Call struct {
+
+// type SubExpression struct {
+
+// type CallChain struct {
+
+// type FuncLiteral struct {
+
+// type ListLiteral struct {
+
+func (dictLiteral DictLiteral) String() string {
+	return "dictionary literal"
+}
+
+func (dictLiteral DictLiteral) Equals(other Value) (bool, error) {
+	return false, nil
+}
+
+func (dictLiteral DictLiteral) Eval(frame *StackFrame) (Value, error) {
+	dictValue := DictValue{val: make(map[string]*Value)}
+	if dictLiteral.Items != nil {
+		for _, dictKV := range dictLiteral.Items {
+			var key string
+			if dictKV.KeyExpr != nil {
+				value, err := dictKV.KeyExpr.Eval(frame)
+				if err != nil {
+					return nil, err
+				}
+				if strValue, okStr := value.(StringValue); okStr {
+					key = string(strValue.val)
+				}
+			} else if dictKV.KeyStr != nil {
+				key = *dictKV.KeyStr
+			}
+
+			value, err := dictKV.ValueExpr.Eval(frame)
+			if err != nil {
+				return nil, err
+			}
+			if key == "" {
+				return nil, traceError(frame, dictLiteral.Pos.String(), "can't set empty string as dictionary key")
+			}
+			dictValue.Set(key, value)
+		}
+	}
+	return dictValue, nil
 }

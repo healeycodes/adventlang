@@ -1,3 +1,4 @@
-if (true) {
-    2;
-}
+let b = {"a": 2};
+let a = b;
+a;
+a == b;

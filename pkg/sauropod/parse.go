@@ -18,8 +18,8 @@ type Statement struct {
 	For    *ForStatement    `| @@`
 	While  *WhileStatement  `| @@`
 	Return *ReturnStatement `| @@`
-	Block  *Block           `| @@`
 	Expr   *Expr            `| @@ ";"`
+	Block  *Block           `| @@`
 }
 
 type IfStatement struct {
@@ -67,7 +67,7 @@ type Expr struct {
 type Assignment struct {
 	Pos lexer.Position
 
-	Let      *string   `"let"?`
+	Let      *string   `@"let"?`
 	LogicAnd *LogicAnd `@@`
 	Op       *string   `( @"="`
 	Next     *LogicAnd `  @@ )?`
@@ -132,16 +132,16 @@ type Unary struct {
 type Primary struct {
 	Pos lexer.Position
 
-	Func          *FuncExpr      `@@`
-	List          *ListExpr      `| @@`
-	Dict          *DictExpr      `| @@`
+	Func          *FuncLiteral   `@@`
+	List          *ListLiteral   `| @@`
+	Dict          *DictLiteral   `| @@`
 	Call          *Call          `| @@`
 	SubExpression *SubExpression `| @@`
 	Number        *float64       `| ( @Float | @Int )`
 	Str           *string        `| @String`
 	True          *bool          `| @"true"`
 	False         *bool          `| @"false"`
-	Undefined     *string        `| @"undefined`
+	Undefined     *string        `| @"undefined"`
 	Ident         *string        `| @Ident`
 }
 
@@ -168,20 +168,20 @@ type CallChain struct {
 	Next     *CallChain `@@?`
 }
 
-type FuncExpr struct {
+type FuncLiteral struct {
 	Pos lexer.Position
 
 	Params []*string `"func" "(" ( @Ident ( "," @Ident )* )? ")"`
 	Block  *Block    `@@`
 }
 
-type ListExpr struct {
+type ListLiteral struct {
 	Pos lexer.Position
 
 	Items []*Expr `"[" ( @@ ( "," @@ )* )? "]"`
 }
 
-type DictExpr struct {
+type DictLiteral struct {
 	Pos lexer.Position
 
 	Items []*DictKV `"{" ( @@ ( "," @@ )* )? "}"`
@@ -200,7 +200,7 @@ var (
 		{"comment", `//.*|/\*.*?\*/`, nil},
 		{"whitespace", `\s+`, nil},
 
-		{"Float", `[+-]?([0-9]*[.])?[0-9]+`, nil},
+		{"Float", `([0-9]*[.])?[0-9]+`, nil},
 		{"Int", `[\d]+`, nil},
 		{"String", `"([^"]*)"`, nil},
 		{"Ident", `[\w]+`, nil},
