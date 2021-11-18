@@ -132,9 +132,9 @@ type Unary struct {
 type Primary struct {
 	Pos lexer.Position
 
-	Func          *FuncLiteral   `@@`
-	List          *ListLiteral   `| @@`
-	Dict          *DictLiteral   `| @@`
+	FuncLiteral   *FuncLiteral   `@@`
+	ListLiteral   *ListLiteral   `| @@`
+	DictLiteral   *DictLiteral   `| @@`
 	Call          *Call          `| @@`
 	SubExpression *SubExpression `| @@`
 	Number        *float64       `| ( @Float | @Int )`
@@ -143,6 +143,33 @@ type Primary struct {
 	False         *bool          `| @"false"`
 	Undefined     *string        `| @"undefined"`
 	Ident         *string        `| @Ident`
+}
+
+type FuncLiteral struct {
+	Pos lexer.Position
+
+	Params []string `"func" "(" ( @Ident ( "," @Ident )* )? ")"`
+	Block  *Block   `@@`
+}
+
+type ListLiteral struct {
+	Pos lexer.Position
+
+	Items []*Expr `"[" ( @@ ( "," @@ )* )? "]"`
+}
+
+type DictLiteral struct {
+	Pos lexer.Position
+
+	Items []*DictKV `"{" ( @@ ( "," @@ )* )? "}"`
+}
+
+type DictKV struct {
+	Pos lexer.Position
+
+	KeyExpr   *Expr   `( @@ |`
+	KeyStr    *string `"'" @Ident "'")`
+	ValueExpr *Expr   `":" @@`
 }
 
 type Call struct {
@@ -166,33 +193,6 @@ type CallChain struct {
 	Property *string    ` | "." @Ident`
 	Args     []*Expr    ` | "(" (@@ ("," @@)*)? ")" )`
 	Next     *CallChain `@@?`
-}
-
-type FuncLiteral struct {
-	Pos lexer.Position
-
-	Params []*string `"func" "(" ( @Ident ( "," @Ident )* )? ")"`
-	Block  *Block    `@@`
-}
-
-type ListLiteral struct {
-	Pos lexer.Position
-
-	Items []*Expr `"[" ( @@ ( "," @@ )* )? "]"`
-}
-
-type DictLiteral struct {
-	Pos lexer.Position
-
-	Items []*DictKV `"{" ( @@ ( "," @@ )* )? "}"`
-}
-
-type DictKV struct {
-	Pos lexer.Position
-
-	KeyExpr   *Expr   `( @@ |`
-	KeyStr    *string `"'" @Ident "'")`
-	ValueExpr *Expr   `":" @@`
 }
 
 var (

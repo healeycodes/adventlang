@@ -1,4 +1,4 @@
-let b = {"a": 2};
-let a = b;
-a;
-a == b;
+let d = func() {
+    return func(b) { return b + 1 }
+};
+d()(1);

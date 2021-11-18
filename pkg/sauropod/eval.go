@@ -101,11 +101,11 @@ type ReferenceValue struct {
 	val *Value
 }
 
-func (_ ReferenceValue) String() string {
+func (referenceValue ReferenceValue) String() string {
 	return "reference"
 }
 
-func (_ ReferenceValue) Equals(other Value) (bool, error) {
+func (referenceValue ReferenceValue) Equals(other Value) (bool, error) {
 	return false, nil
 }
 
@@ -215,6 +215,43 @@ func (boolValue BoolValue) Equals(other Value) (bool, error) {
 	return false, nil
 }
 
+type FunctionValue struct {
+	position   string
+	parameters []string
+	frame      *StackFrame
+	statements []*Statement
+}
+
+func (functionValue FunctionValue) String() string {
+	// TODO: stringify function body
+	return "function (" + strings.Join(functionValue.parameters, ",") + ") "
+}
+
+func (functionValue FunctionValue) Equals(other Value) (bool, error) {
+	return false, nil
+}
+
+func (functionValue FunctionValue) Exec(position string, args []Value) (Value, error) {
+	callFrame := functionValue.frame.GetChild("function called at " + position)
+	if len(args) != len(functionValue.parameters) {
+		return nil, traceError(functionValue.frame, position,
+			fmt.Sprintf("incorrect number of arguments, wanted: %v, got: %v", len(functionValue.parameters), len(args)))
+	}
+	for i, parameter := range functionValue.parameters {
+		callFrame.Set(parameter, args[i])
+	}
+	var result Value
+	result = UndefinedValue{}
+	var err error
+	for _, statement := range functionValue.statements {
+		result, err = statement.Eval(callFrame)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
 type DictValue struct {
 	val map[string]*Value
 }
@@ -285,16 +322,18 @@ func (statement Statement) Eval(frame *StackFrame) (Value, error) {
 	result = UndefinedValue{}
 
 	if statement.If != nil {
-		return (*statement.If).Eval(frame)
+		return statement.If.Eval(frame)
 	}
 
 	// For    *ForStatement    `| @@`
 	// While  *WhileStatement  `| @@`
-	// Return *ReturnStatement `| @@`
+	if statement.Return != nil {
+		return statement.Return.Expr.Eval(frame)
+	}
 	// Block  *Block           `| @@`
 
 	if statement.Expr != nil {
-		return (*statement.Expr).Eval(frame)
+		return statement.Expr.Eval(frame)
 	}
 
 	return result, nil
@@ -748,13 +787,31 @@ func (primary Primary) String() string {
 	return "primary"
 }
 
+func (functionLiteral FuncLiteral) String() string {
+	return "function literal"
+}
+
+func (functionLiteral FuncLiteral) Equals(other Value) (bool, error) {
+	return false, nil
+}
+
+func (functionLiteral FuncLiteral) Eval(frame *StackFrame) (Value, error) {
+	closureFrame := frame.GetChild("function declared: " + functionLiteral.Pos.String())
+	functionValue := FunctionValue{position: functionLiteral.Pos.String(), parameters: functionLiteral.Params, frame: closureFrame, statements: functionLiteral.Block.Statements}
+	return functionValue, nil
+}
+
 func (primary Primary) Eval(frame *StackFrame) (Value, error) {
-	// Func          *FuncLiteral   `@@`
-	// List          *ListLiteral   `| @@`
-	if primary.Dict != nil {
-		return primary.Dict.Eval(frame)
+	if primary.FuncLiteral != nil {
+		return primary.FuncLiteral.Eval(frame)
 	}
-	// Call          *Call          `| @@`
+	// List          *ListLiteral   `| @@`
+	if primary.DictLiteral != nil {
+		return primary.DictLiteral.Eval(frame)
+	}
+	if primary.Call != nil {
+		return primary.Call.Eval(frame)
+	}
 	// SubExpression *SubExpression `| @@`
 	if primary.Number != nil {
 		return NumberValue{val: *primary.Number}, nil
@@ -778,12 +835,6 @@ func (primary Primary) Eval(frame *StackFrame) (Value, error) {
 	}
 	panic("unimplemented")
 }
-
-// type Call struct {
-
-// type SubExpression struct {
-
-// type CallChain struct {
 
 // type FuncLiteral struct {
 
@@ -826,3 +877,44 @@ func (dictLiteral DictLiteral) Eval(frame *StackFrame) (Value, error) {
 	}
 	return dictValue, nil
 }
+
+func (call Call) String() string {
+	return "call"
+}
+
+func (call Call) Equals(other Value) (bool, error) {
+	return false, nil
+}
+
+func (call Call) Eval(frame *StackFrame) (Value, error) {
+	var result Value
+	result = UndefinedValue{}
+	callable, err := frame.Get(*call.Ident)
+	if err != nil {
+		return nil, err
+	}
+
+	if function, okFunction := callable.(FunctionValue); okFunction {
+		if call.CallChain.Index != nil || call.CallChain.Property != nil {
+			return nil, traceError(frame, call.CallChain.Pos.String(),
+				"can't access into function, perhaps you meant to call it?")
+		}
+		args := make([]Value, 0)
+		for _, expr := range call.CallChain.Args {
+			result, err := expr.Eval(frame)
+			if err != nil {
+				return nil, err
+			}
+			args = append(args, result)
+		}
+		result, err = function.Exec(call.Pos.String(), args)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// type SubExpression struct {
+
+// type CallChain struct {
