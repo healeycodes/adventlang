@@ -19,43 +19,36 @@ type Statement struct {
 	While  *WhileStatement  `| @@`
 	Return *ReturnStatement `| @@`
 	Expr   *Expr            `| @@ ";"`
-	Block  *Block           `| @@`
 }
 
 type IfStatement struct {
 	Pos lexer.Position
 
-	Condition *Expr  `"if" "(" @@ ")"`
-	If        *Block `@@`
-	Else      *Block `("else" @@)?`
+	Condition *Expr        `"if" "(" @@ ")"`
+	If        []*Statement `"{" @@* "}"`
+	Else      []*Statement `("else" "{" @@* "}")?`
 }
 
 type ForStatement struct {
 	Pos lexer.Position
 
-	Init      *Expr  `"for" "(" @@? ";"`
-	Condition *Expr  `@@? ";"`
-	Post      *Expr  `@@? ")"`
-	Block     *Block `@@`
+	Init      *Expr        `"for" "(" @@? ";"`
+	Condition *Expr        `@@? ";"`
+	Post      *Expr        `@@? ")"`
+	Block     []*Statement `"{" @@* "}"`
 }
 
 type WhileStatement struct {
 	Pos lexer.Position
 
-	Condition *Expr  ` "while" "(" @@? ")"`
-	Block     *Block `@@`
+	Condition *Expr        `"while" "(" @@? ")"`
+	Block     []*Statement `"{" @@* "}"`
 }
 
 type ReturnStatement struct {
 	Pos lexer.Position
 
 	Expr *Expr `"return" @@?`
-}
-
-type Block struct {
-	Pos lexer.Position
-
-	Statements []*Statement `"{" @@+ "}"`
 }
 
 type Expr struct {
@@ -148,8 +141,8 @@ type Primary struct {
 type FuncLiteral struct {
 	Pos lexer.Position
 
-	Params []string `"func" "(" ( @Ident ( "," @Ident )* )? ")"`
-	Block  *Block   `@@`
+	Params []string     `"func" "(" ( @Ident ( "," @Ident )* )? ")"`
+	Block  []*Statement `"{" @@* "}"`
 }
 
 type ListLiteral struct {
@@ -189,10 +182,22 @@ type SubExpression struct {
 type CallChain struct {
 	Pos lexer.Position
 
-	Index    []*Expr    `( "[" @@ "]"`
-	Property *string    ` | "." @Ident`
-	Args     []*Expr    ` | "(" (@@ ("," @@)*)? ")" )`
-	Next     *CallChain `@@?`
+	Args     *CallArgs     `( @@`
+	Index    *CallIndex    ` | @@`
+	Property *CallProperty ` | @@ )`
+	Next     *CallChain    `@@?`
+}
+
+type CallArgs struct {
+	Exprs []*Expr `"(" (@@ ("," @@)*)? ")"`
+}
+
+type CallIndex struct {
+	Exprs *Expr `"[" @@ "]"`
+}
+
+type CallProperty struct {
+	Ident *string `"." @Ident`
 }
 
 var (
