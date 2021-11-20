@@ -1,4 +1,8 @@
 let d = func(a) {
-    return func(b) { return 1 }
+    return func(b) { 
+        return func(c) {
+            return c * c
+        }
+    }
 };
-d(1)(2);
+d(10)(20)(30);

@@ -25,3 +25,11 @@ let d = func(a) { return a + 1 };
 d(2);
 let f = d;
 f(5 + 1);
+let e = func(a) {
+    return func(b) { 
+        return func(c) {
+            return c * c
+        }
+    }
+};
+e(10)(20)(30);
