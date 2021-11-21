@@ -1,3 +1,4 @@
 let g = {"a": 1};
-g["a"] = 2;
+let f = g;
+f.a = 2;
 log(g);

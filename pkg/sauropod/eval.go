@@ -271,12 +271,10 @@ func (dictValue *DictValue) Set(key string, value Value) *Value {
 
 func (dictValue DictValue) String() string {
 	s := make([]string, 0)
-	s = append(s, "{")
 	for key, value := range dictValue.val {
 		s = append(s, fmt.Sprintf("\"%v\": %v", key, *value))
 	}
-	s = append(s, "}")
-	return strings.Join(s, "")
+	return "{" + strings.Join(s, ", ") + "}"
 }
 
 func (dictValue DictValue) Equals(other Value) (bool, error) {
@@ -930,9 +928,21 @@ func (call Call) Eval(frame *StackFrame) (Value, error) {
 	return result, nil
 }
 
-// type SubExpression struct {
+func (subExpression SubExpression) String() string {
+	return "subExpression"
+}
 
-// type CallChain struct {
+// func (subExpression SubExpression) Equals(other Value) (bool, error) {
+// 	return false, nil
+// }
+
+// func (subExpression SubExpression) Eval(frame *StackFrame) (Value, error) {
+
+// }
+
+// func evalCallChain(frame, value Value, callChain CallChain) {
+
+// }
 
 func evalExprs(frame *StackFrame, exprs []*Expr) ([]Value, error) {
 	ret := make([]Value, 0)
@@ -941,7 +951,11 @@ func evalExprs(frame *StackFrame, exprs []*Expr) ([]Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		ret = append(ret, result)
+		unwrapped, err := unwrap(result, frame)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, unwrapped)
 	}
 	return ret, nil
 }
