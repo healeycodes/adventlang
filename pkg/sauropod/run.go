@@ -12,6 +12,7 @@ func RunProgram(filename string, source string) (string, error) {
 
 	context := Context{}
 	context.Init(filename)
+	InjectRuntime(&context)
 
 	result, err := program.Eval((&context.stackFrame))
 	if err != nil {

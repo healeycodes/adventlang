@@ -264,8 +264,9 @@ func (dictValue *DictValue) Get(key string) (*Value, error) {
 	return nil, fmt.Errorf("key missing from dictionary: %v", key)
 }
 
-func (dictValue *DictValue) Set(key string, value Value) {
+func (dictValue *DictValue) Set(key string, value Value) *Value {
 	dictValue.val[key] = &value
+	return &value
 }
 
 func (dictValue DictValue) String() string {
@@ -392,19 +393,17 @@ func (assignment Assignment) Eval(frame *StackFrame) (Value, error) {
 	leftRef, leftRefOk := left.(ReferenceValue)
 
 	if assignment.Op == nil {
-		// Are we a naked variable?
-		if leftId, okId := left.(IdentifierValue); okId {
-			return frame.Get(leftId.val)
+		if leftRefOk {
+			return *leftRef.val, nil
 		}
 		return left, nil
 	}
 
+	// assignment.Op is "="
 	right, err := assignment.Next.Eval(frame)
 	if err != nil {
 		return nil, err
 	}
-
-	// assignment.Op is "="
 	if idValue, okId := right.(IdentifierValue); okId {
 		right, err = frame.Get(idValue.val)
 		if err != nil {
@@ -873,19 +872,50 @@ func (call Call) Eval(frame *StackFrame) (Value, error) {
 
 	callChain := call.CallChain
 	for {
+		result = unref(result)
 		if callChain.Index != nil {
-			//
-		}
-		if callChain.Property != nil {
-			//
-		}
-		if callChain.Args != nil {
-			if function, okFunction := result.(FunctionValue); okFunction {
-				args, err := evalExprs(frame, callChain.Args.Exprs)
+			if dictValue, okDict := result.(DictValue); okDict {
+				exprs, err := evalExprs(frame, []*Expr{callChain.Index.Expr})
+				index := exprs[0]
 				if err != nil {
 					return nil, err
 				}
+				if stringValue, okString := index.(StringValue); okString {
+					reference, err := dictValue.Get(string(stringValue.val))
+					if err != nil {
+						result = ReferenceValue{val: dictValue.Set(string(stringValue.val), UndefinedValue{})}
+					} else {
+						result = ReferenceValue{val: reference}
+					}
+				} else {
+					// TODO: only access with string error
+				}
+			}
+		}
+		if callChain.Property != nil {
+			if dictValue, okDict := result.(DictValue); okDict {
+				reference, err := dictValue.Get(*callChain.Property.Ident)
+				if err != nil {
+					result = ReferenceValue{val: dictValue.Set(*callChain.Property.Ident, UndefinedValue{})}
+				} else {
+					result = ReferenceValue{val: reference}
+				}
+			}
+		}
+		if callChain.Args != nil {
+			args, err := evalExprs(frame, callChain.Args.Exprs)
+			if err != nil {
+				return nil, err
+			}
+			if function, okFunction := result.(FunctionValue); okFunction {
 				result, err = function.Exec(callChain.Pos.String(), args)
+				if err != nil {
+					return nil, err
+				}
+			}
+			if nativeFunction, okNativeFunction := result.(NativeFunctionValue); okNativeFunction {
+				nativeFunction.frame = frame
+				result, err = nativeFunction.Exec(frame, callChain.Pos.String(), args)
 				if err != nil {
 					return nil, err
 				}

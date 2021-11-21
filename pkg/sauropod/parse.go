@@ -193,7 +193,7 @@ type CallArgs struct {
 }
 
 type CallIndex struct {
-	Exprs *Expr `"[" @@ "]"`
+	Expr *Expr `"[" @@ "]"`
 }
 
 type CallProperty struct {

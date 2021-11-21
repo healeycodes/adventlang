@@ -22,12 +22,12 @@ func getType(args []Value) (Value, error) {
 		return StringValue{val: []byte("number")}, nil
 	case BoolValue:
 		return StringValue{val: []byte("bool")}, nil
-	// case FunctionValue, NativeFunctionValue:
-	// 	return StringValue{val: []byte("function")}, nil
+	case FunctionValue, NativeFunctionValue:
+		return StringValue{val: []byte("function")}, nil
 	// case ListValue:
 	// 	return StringValue{val: []byte("list")}, nil
-	// case DictValue:
-	// 	return StringValue{val: []byte("dict")}, nil
+	case DictValue:
+		return StringValue{val: []byte("dict")}, nil
 	case UndefinedValue:
 		return StringValue{val: []byte("undefined")}, nil
 	}
@@ -45,9 +45,10 @@ func InjectRuntime(context *Context) {
 }
 
 type NativeFunctionValue struct {
-	Pos  lexer.Position
-	name string
-	Exec func([]Value) (Value, error)
+	frame *StackFrame
+	Pos   lexer.Position
+	name  string
+	Exec  func(*StackFrame, string, []Value) (Value, error)
 }
 
 func (nativeFunctionValue NativeFunctionValue) String() string {
@@ -61,9 +62,11 @@ func (nativeFunctionValue NativeFunctionValue) Equals(other Value) (bool, error)
 	return false, nil
 }
 
-func runAssert(args []Value) (Value, error) {
+func runAssert(frame *StackFrame, position string, args []Value) (Value, error) {
+	callFrame := frame.GetChild("assert() called: " + position)
 	if len(args) != 2 {
-		return nil, fmt.Errorf("assert() expects 2 arguments")
+		return nil, traceError(callFrame, position,
+			fmt.Sprintf("incorrect number of arguments, wanted: %v, got: %v", 2, len(args)))
 	}
 	equal, err := args[0].Equals(args[1])
 	if err != nil {
@@ -75,18 +78,25 @@ func runAssert(args []Value) (Value, error) {
 	return UndefinedValue{}, nil
 }
 
-func runLog(args []Value) (Value, error) {
+func runLog(frame *StackFrame, position string, args []Value) (Value, error) {
+	callFrame := frame.GetChild("log() called: " + position)
+	if len(args) == 0 {
+		return nil, traceError(callFrame, position,
+			fmt.Sprintf("incorrect number of arguments, wanted: at least 1, got: %v", len(args)))
+	}
 	s := make([]string, len(args))
 	for i := range args {
 		s[i] = args[i].String()
 	}
-	fmt.Println(strings.Join(s, ", "))
+	println(strings.Join(s, ", "))
 	return UndefinedValue{}, nil
 }
 
-func runTime(args []Value) (Value, error) {
+func runTime(frame *StackFrame, position string, args []Value) (Value, error) {
+	callFrame := frame.GetChild("time() called: " + position)
 	if len(args) != 0 {
-		return nil, fmt.Errorf("time() expects 0 arguments")
+		return nil, traceError(callFrame, position,
+			fmt.Sprintf("incorrect number of arguments, wanted: 0, got: %v", len(args)))
 	}
 	return NumberValue{val: float64(time.Now().UnixNano() / int64(time.Millisecond))}, nil
 }

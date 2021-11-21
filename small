@@ -1,8 +1,3 @@
-let d = func(a) {
-    return func(b) { 
-        return func(c) {
-            return c * c
-        }
-    }
-};
-d(10)(20)(30);
+let g = {"a": 1};
+g["a"] = 2;
+log(g);
