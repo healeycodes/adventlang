@@ -385,7 +385,9 @@ func (statement Statement) Eval(frame *StackFrame) (Value, error) {
 	if statement.For != nil {
 		return statement.For.Eval(frame)
 	}
-	// While  *WhileStatement  `| @@`
+	if statement.While != nil {
+		return statement.While.Eval(frame)
+	}
 	if statement.Return != nil {
 		// TODO: don't allow return outside of functions
 		return statement.Return.Expr.Eval(frame)
@@ -435,34 +437,20 @@ func (forStatement ForStatement) Eval(frame *StackFrame) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
+	return evalLoop(forFrame, forStatement.Condition, forStatement.Block, forStatement.Post)
+}
 
-	for {
-		condition, err := forStatement.Condition.Eval(forFrame)
-		if err != nil {
-			return nil, err
-		}
-		if boolValue, okBool := condition.(BoolValue); okBool {
-			if boolValue.val {
-				_, err = evalBlock(forFrame, forStatement.Block)
-				if err != nil {
-					return nil, err
-				}
-				_, err = forStatement.Post.Eval(forFrame)
-				if err != nil {
-					return nil, err
-				}
-			} else {
-				return UndefinedValue{}, nil
-			}
-		} else {
-			valueType, err := getType([]Value{condition})
-			if err != nil {
-				return nil, err
-			}
-			return nil, traceError(forFrame, forStatement.Condition.Pos.String(),
-				"for condition expression should evaluate to a boolean, found: "+valueType.String())
-		}
-	}
+func (whileStatement WhileStatement) String() string {
+	return "while statement"
+}
+
+func (whileStatement WhileStatement) Equals(other Value) (bool, error) {
+	return false, nil
+}
+
+func (whileStatement WhileStatement) Eval(frame *StackFrame) (Value, error) {
+	whileFrame := frame.GetChild("while: " + whileStatement.Pos.String())
+	return evalLoop(whileFrame, whileStatement.Condition, whileStatement.Block, nil)
 }
 
 func (expr Expr) String() string {
@@ -1009,6 +997,38 @@ func (subExpression SubExpression) Eval(frame *StackFrame) (Value, error) {
 		return evalCallChain(frame, value, subExpression.CallChain)
 	}
 	return value, nil
+}
+
+func evalLoop(loopFrame *StackFrame, conditionExpr *Expr, block []*Statement, post *Expr) (Value, error) {
+	for {
+		condition, err := conditionExpr.Eval(loopFrame)
+		if err != nil {
+			return nil, err
+		}
+		if boolValue, okBool := condition.(BoolValue); okBool {
+			if boolValue.val {
+				_, err = evalBlock(loopFrame, block)
+				if err != nil {
+					return nil, err
+				}
+				if post != nil {
+					_, err = post.Eval(loopFrame)
+					if err != nil {
+						return nil, err
+					}
+				}
+			} else {
+				return UndefinedValue{}, nil
+			}
+		} else {
+			valueType, err := getType([]Value{condition})
+			if err != nil {
+				return nil, err
+			}
+			return nil, traceError(loopFrame, conditionExpr.Pos.String(),
+				"loop condition expression should evaluate to a boolean, found: "+valueType.String())
+		}
+	}
 }
 
 func evalCallChain(frame *StackFrame, value Value, callChain *CallChain) (Value, error) {
