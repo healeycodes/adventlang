@@ -18,7 +18,6 @@ func traceError(frame *StackFrame, position string, message string) error {
 	for {
 		if parent := frame.parent; parent != nil {
 			frame = parent
-			s = parent.trace + "\n" + s
 		} else {
 			break
 		}
@@ -355,10 +354,10 @@ func (program Program) Equals(other Value) (bool, error) {
 }
 
 func (program Program) Eval(frame *StackFrame) (Value, error) {
-	return block(frame, program.Statements)
+	return evalBlock(frame, program.Statements)
 }
 
-func block(frame *StackFrame, statements []*Statement) (Value, error) {
+func evalBlock(frame *StackFrame, statements []*Statement) (Value, error) {
 	var result Value
 	result = UndefinedValue{}
 	var err error
@@ -383,7 +382,9 @@ func (statement Statement) Eval(frame *StackFrame) (Value, error) {
 	if statement.If != nil {
 		return statement.If.Eval(frame)
 	}
-	// For    *ForStatement    `| @@`
+	if statement.For != nil {
+		return statement.For.Eval(frame)
+	}
 	// While  *WhileStatement  `| @@`
 	if statement.Return != nil {
 		// TODO: don't allow return outside of functions
@@ -412,12 +413,56 @@ func (ifStatement IfStatement) Eval(frame *StackFrame) (Value, error) {
 
 	if boolValue, okBool := condition.(BoolValue); okBool {
 		if boolValue.val {
-			return block(ifFrame, ifStatement.If)
+			return evalBlock(ifFrame, ifStatement.If)
 		}
-		return block(ifFrame, ifStatement.Else)
+		return evalBlock(ifFrame, ifStatement.Else)
 	}
 	return nil, traceError(frame, ifStatement.Condition.Pos.String(),
 		"conditional should evaluate to true or false")
+}
+
+func (forStatement ForStatement) String() string {
+	return "for statement"
+}
+
+func (forStatement ForStatement) Equals(other Value) (bool, error) {
+	return false, nil
+}
+
+func (forStatement ForStatement) Eval(frame *StackFrame) (Value, error) {
+	forFrame := frame.GetChild("for: " + forStatement.Pos.String())
+	_, err := forStatement.Init.Eval(forFrame)
+	if err != nil {
+		return nil, err
+	}
+
+	for {
+		condition, err := forStatement.Condition.Eval(forFrame)
+		if err != nil {
+			return nil, err
+		}
+		if boolValue, okBool := condition.(BoolValue); okBool {
+			if boolValue.val {
+				_, err = evalBlock(forFrame, forStatement.Block)
+				if err != nil {
+					return nil, err
+				}
+				_, err = forStatement.Post.Eval(forFrame)
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				return UndefinedValue{}, nil
+			}
+		} else {
+			valueType, err := getType([]Value{condition})
+			if err != nil {
+				return nil, err
+			}
+			return nil, traceError(forFrame, forStatement.Condition.Pos.String(),
+				"for condition expression should evaluate to a boolean, found: "+valueType.String())
+		}
+	}
 }
 
 func (expr Expr) String() string {
@@ -967,7 +1012,6 @@ func (subExpression SubExpression) Eval(frame *StackFrame) (Value, error) {
 }
 
 func evalCallChain(frame *StackFrame, value Value, callChain *CallChain) (Value, error) {
-	println("evalCallChain")
 	for {
 		value = unref(value)
 		if callChain.Index != nil {
@@ -1054,7 +1098,6 @@ func evalCallChain(frame *StackFrame, value Value, callChain *CallChain) (Value,
 }
 
 func evalExprs(frame *StackFrame, exprs []*Expr) ([]Value, error) {
-	println("evalExprs")
 	ret := make([]Value, 0)
 	for _, expr := range exprs {
 		result, err := expr.Eval(frame)
@@ -1065,7 +1108,6 @@ func evalExprs(frame *StackFrame, exprs []*Expr) ([]Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		println(unwrapped.String())
 		ret = append(ret, unwrapped)
 	}
 	return ret, nil
