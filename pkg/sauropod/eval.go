@@ -252,6 +252,65 @@ func (functionValue FunctionValue) Exec(position string, args []Value) (Value, e
 	return UndefinedValue{}, nil
 }
 
+type ListValue struct {
+	val map[int]*Value
+}
+
+func (listValue *ListValue) Get(index int) (Value, error) {
+	if index < 0 || index > len(listValue.val)-1 {
+		return nil, fmt.Errorf("list index out of bounds: %v", index)
+	}
+	value, ok := listValue.val[index]
+	if !ok {
+		// All values between the bounds should be valid
+		panic("unreachable")
+	}
+	return ReferenceValue{val: value}, nil
+}
+
+func (listValue ListValue) String() string {
+	items := make([]string, len(listValue.val))
+	for i, item := range listValue.val {
+		items[i] = (*item).String()
+	}
+	return "[" + strings.Join(items, ", ") + "]"
+}
+
+func (listValue ListValue) Equals(other Value) (bool, error) {
+	return false, nil
+}
+
+func (listValue ListValue) Append(other Value) {
+	listValue.val[len(listValue.val)] = &other
+}
+
+func (listValue ListValue) Prepend(other Value) {
+	// Add a new zeroth item.
+	// Correcting the remaining indexes costs O(N)
+	for i := len(listValue.val); i > 0; i-- {
+		listValue.val[i] = listValue.val[i-1]
+	}
+	listValue.val[0] = &other
+}
+
+func (listValue ListValue) Pop() Value {
+	last := *listValue.val[len(listValue.val)-1]
+	delete(listValue.val, len(listValue.val)-1)
+	return last
+}
+
+func (listValue ListValue) PopLeft() Value {
+	// Remove and return the zeroth item.
+	// Correcting the remaining indexes costs O(N)
+	first := *listValue.val[0]
+	delete(listValue.val, 0)
+	for i := 0; i < len(listValue.val); i++ {
+		listValue.val[i] = listValue.val[i+1]
+	}
+	delete(listValue.val, len(listValue.val)-1)
+	return first
+}
+
 type DictValue struct {
 	val map[string]*Value
 }
@@ -324,14 +383,12 @@ func (statement Statement) Eval(frame *StackFrame) (Value, error) {
 	if statement.If != nil {
 		return statement.If.Eval(frame)
 	}
-
 	// For    *ForStatement    `| @@`
 	// While  *WhileStatement  `| @@`
 	if statement.Return != nil {
+		// TODO: don't allow return outside of functions
 		return statement.Return.Expr.Eval(frame)
 	}
-	// Block  *Block           `| @@`
-
 	if statement.Expr != nil {
 		return statement.Expr.Eval(frame)
 	}
@@ -763,32 +820,22 @@ func (primary Primary) String() string {
 	return "primary"
 }
 
-func (functionLiteral FuncLiteral) String() string {
-	return "function literal"
-}
-
-func (functionLiteral FuncLiteral) Equals(other Value) (bool, error) {
-	return false, nil
-}
-
-func (functionLiteral FuncLiteral) Eval(frame *StackFrame) (Value, error) {
-	closureFrame := frame.GetChild("function declared: " + functionLiteral.Pos.String())
-	functionValue := FunctionValue{position: functionLiteral.Pos.String(), parameters: functionLiteral.Params, frame: closureFrame, statements: functionLiteral.Block}
-	return functionValue, nil
-}
-
 func (primary Primary) Eval(frame *StackFrame) (Value, error) {
 	if primary.FuncLiteral != nil {
 		return primary.FuncLiteral.Eval(frame)
 	}
-	// List          *ListLiteral   `| @@`
+	if primary.ListLiteral != nil {
+		return primary.ListLiteral.Eval(frame)
+	}
 	if primary.DictLiteral != nil {
 		return primary.DictLiteral.Eval(frame)
 	}
 	if primary.Call != nil {
 		return primary.Call.Eval(frame)
 	}
-	// SubExpression *SubExpression `| @@`
+	if primary.SubExpression != nil {
+		return primary.SubExpression.Eval(frame)
+	}
 	if primary.Number != nil {
 		return NumberValue{val: *primary.Number}, nil
 	}
@@ -812,9 +859,39 @@ func (primary Primary) Eval(frame *StackFrame) (Value, error) {
 	panic("unreachable")
 }
 
-// type FuncLiteral struct {
+func (functionLiteral FuncLiteral) String() string {
+	return "function literal"
+}
 
-// type ListLiteral struct {
+func (functionLiteral FuncLiteral) Equals(other Value) (bool, error) {
+	return false, nil
+}
+
+func (functionLiteral FuncLiteral) Eval(frame *StackFrame) (Value, error) {
+	closureFrame := frame.GetChild("function declared: " + functionLiteral.Pos.String())
+	functionValue := FunctionValue{position: functionLiteral.Pos.String(), parameters: functionLiteral.Params, frame: closureFrame, statements: functionLiteral.Block}
+	return functionValue, nil
+}
+
+func (listLiteral ListLiteral) String() string {
+	return "list literal"
+}
+
+func (listLiteral ListLiteral) Equals(other Value) (bool, error) {
+	return false, nil
+}
+
+func (listLiteral ListLiteral) Eval(frame *StackFrame) (Value, error) {
+	values := make(map[int]*Value, 0)
+	for i, expr := range listLiteral.Items {
+		value, err := expr.Eval(frame)
+		if err != nil {
+			return nil, err
+		}
+		values[i] = &value
+	}
+	return ListValue{val: values}, nil
+}
 
 func (dictLiteral DictLiteral) String() string {
 	return "dictionary literal"
@@ -863,16 +940,38 @@ func (call Call) Equals(other Value) (bool, error) {
 }
 
 func (call Call) Eval(frame *StackFrame) (Value, error) {
-	result, err := frame.Get(*call.Ident)
+	value, err := frame.Get(*call.Ident)
 	if err != nil {
 		return nil, err
 	}
+	return evalCallChain(frame, value, call.CallChain)
+}
 
-	callChain := call.CallChain
+func (subExpression SubExpression) String() string {
+	return "sub expression"
+}
+
+func (subExpression SubExpression) Equals(other Value) (bool, error) {
+	return false, nil
+}
+
+func (subExpression SubExpression) Eval(frame *StackFrame) (Value, error) {
+	value, err := subExpression.Expr.Eval(frame)
+	if err != nil {
+		return nil, err
+	}
+	if subExpression.CallChain != nil {
+		return evalCallChain(frame, value, subExpression.CallChain)
+	}
+	return value, nil
+}
+
+func evalCallChain(frame *StackFrame, value Value, callChain *CallChain) (Value, error) {
+	println("evalCallChain")
 	for {
-		result = unref(result)
+		value = unref(value)
 		if callChain.Index != nil {
-			if dictValue, okDict := result.(DictValue); okDict {
+			if dictValue, okDict := value.(DictValue); okDict {
 				exprs, err := evalExprs(frame, []*Expr{callChain.Index.Expr})
 				index := exprs[0]
 				if err != nil {
@@ -881,22 +980,48 @@ func (call Call) Eval(frame *StackFrame) (Value, error) {
 				if stringValue, okString := index.(StringValue); okString {
 					reference, err := dictValue.Get(string(stringValue.val))
 					if err != nil {
-						result = ReferenceValue{val: dictValue.Set(string(stringValue.val), UndefinedValue{})}
+						value = ReferenceValue{val: dictValue.Set(string(stringValue.val), UndefinedValue{})}
 					} else {
-						result = ReferenceValue{val: reference}
+						value = ReferenceValue{val: reference}
 					}
 				} else {
-					// TODO: only access with string error
+					valueType, err := getType(exprs)
+					if err != nil {
+						return nil, err
+					}
+					return nil, traceError(frame, callChain.Pos.String(), fmt.Sprintf("dictionaries can only be accessed by string: got '%v' of type %v", index, valueType))
+				}
+			}
+			if listValue, okList := value.(ListValue); okList {
+				exprs, err := evalExprs(frame, []*Expr{callChain.Index.Expr})
+				index := exprs[0]
+				if err != nil {
+					return nil, err
+				}
+				if numberValue, okNumber := index.(NumberValue); okNumber {
+					// Note that floats are floored here
+					value, err = listValue.Get(int(numberValue.val))
+					if err != nil {
+						return nil, traceError(frame, callChain.Index.Expr.Pos.String(), err.Error())
+					}
+				} else {
+					valueType, err := getType(exprs)
+					if err != nil {
+						return nil, err
+					}
+					return nil, traceError(frame, callChain.Pos.String(), fmt.Sprintf("lists can only be accessed by number: got '%v' of type %v", index, valueType))
 				}
 			}
 		}
 		if callChain.Property != nil {
-			if dictValue, okDict := result.(DictValue); okDict {
+			// TODO: Dict API (keys, values)
+			// TODO: List API (append, etc.)
+			if dictValue, okDict := value.(DictValue); okDict {
 				reference, err := dictValue.Get(*callChain.Property.Ident)
 				if err != nil {
-					result = ReferenceValue{val: dictValue.Set(*callChain.Property.Ident, UndefinedValue{})}
+					value = ReferenceValue{val: dictValue.Set(*callChain.Property.Ident, UndefinedValue{})}
 				} else {
-					result = ReferenceValue{val: reference}
+					value = ReferenceValue{val: reference}
 				}
 			}
 		}
@@ -905,15 +1030,15 @@ func (call Call) Eval(frame *StackFrame) (Value, error) {
 			if err != nil {
 				return nil, err
 			}
-			if function, okFunction := result.(FunctionValue); okFunction {
-				result, err = function.Exec(callChain.Pos.String(), args)
+			if function, okFunction := value.(FunctionValue); okFunction {
+				value, err = function.Exec(callChain.Pos.String(), args)
 				if err != nil {
 					return nil, err
 				}
 			}
-			if nativeFunction, okNativeFunction := result.(NativeFunctionValue); okNativeFunction {
+			if nativeFunction, okNativeFunction := value.(NativeFunctionValue); okNativeFunction {
 				nativeFunction.frame = frame
-				result, err = nativeFunction.Exec(frame, callChain.Pos.String(), args)
+				value, err = nativeFunction.Exec(frame, callChain.Pos.String(), args)
 				if err != nil {
 					return nil, err
 				}
@@ -925,26 +1050,11 @@ func (call Call) Eval(frame *StackFrame) (Value, error) {
 		callChain = callChain.Next
 	}
 
-	return result, nil
+	return value, nil
 }
-
-func (subExpression SubExpression) String() string {
-	return "subExpression"
-}
-
-// func (subExpression SubExpression) Equals(other Value) (bool, error) {
-// 	return false, nil
-// }
-
-// func (subExpression SubExpression) Eval(frame *StackFrame) (Value, error) {
-
-// }
-
-// func evalCallChain(frame, value Value, callChain CallChain) {
-
-// }
 
 func evalExprs(frame *StackFrame, exprs []*Expr) ([]Value, error) {
+	println("evalExprs")
 	ret := make([]Value, 0)
 	for _, expr := range exprs {
 		result, err := expr.Eval(frame)
@@ -955,6 +1065,7 @@ func evalExprs(frame *StackFrame, exprs []*Expr) ([]Value, error) {
 		if err != nil {
 			return nil, err
 		}
+		println(unwrapped.String())
 		ret = append(ret, unwrapped)
 	}
 	return ret, nil

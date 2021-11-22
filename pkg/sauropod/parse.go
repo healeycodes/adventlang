@@ -175,8 +175,8 @@ type Call struct {
 type SubExpression struct {
 	Pos lexer.Position
 
-	SubExpression *Expr      `"(" @@ ")" `
-	CallChain     *CallChain `@@?`
+	Expr      *Expr      `"(" @@ ")" `
+	CallChain *CallChain `@@?`
 }
 
 type CallChain struct {
