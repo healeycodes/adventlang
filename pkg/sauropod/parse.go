@@ -14,11 +14,16 @@ type Program struct {
 type Statement struct {
 	Pos lexer.Position
 
-	If     *IfStatement     `@@`
-	For    *ForStatement    `| @@`
-	While  *WhileStatement  `| @@`
-	Return *ReturnStatement `| @@`
-	Expr   *Expr            `| @@ ";"`
+	If       *IfStatement     `@@`
+	For      *ForStatement    `| @@`
+	While    *WhileStatement  `| @@`
+	Return   *ReturnStatement `| @@`
+	Break    *string          `| @"break"`
+	Continue *string          `| @"continue"`
+	Expr     *Expr            `| @@ ";"`
+	// TODO: could allow trailing semi-colons
+	// so "break;" and "return 1;" are valid?
+	// Would need to skip semis in Statement.Eval
 }
 
 type IfStatement struct {

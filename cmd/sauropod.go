@@ -24,7 +24,7 @@ func main() {
 
 	result, err := sauropod.RunProgram(filename, string(b))
 	if err != nil {
-		println("error:\n", err.Error())
+		println("uh oh..", err.Error())
 		os.Exit(1)
 	}
 

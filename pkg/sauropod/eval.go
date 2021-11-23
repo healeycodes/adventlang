@@ -29,8 +29,8 @@ type Context struct {
 	stackFrame StackFrame
 }
 
-func (context *Context) Init(trace string) {
-	context.stackFrame = StackFrame{trace: trace, entries: make(map[string]Value)}
+func (context *Context) Init() {
+	context.stackFrame = StackFrame{trace: "", entries: make(map[string]Value)}
 }
 
 func (frame *StackFrame) String() string {
@@ -91,11 +91,29 @@ func (frame *StackFrame) Set(key string, value Value) {
 	currentFrame.entries[key] = value
 }
 
+// These errors are for escaping loop execution
+// Error() is never surfaced to users
+type BreakError struct{}
+
+func (b *BreakError) Error() string {
+	return "unreachable"
+}
+
+type ContinueError struct{}
+
+func (c *ContinueError) Error() string {
+	return "unreachable"
+}
+
+// Language value
+// ranging from strings, numbers, to functions, lists, and dicts
 type Value interface {
 	String() string
 	Equals(Value) (bool, error)
 }
 
+// Sometimes we want to bubble up a reference to a list or dict item
+// so that it can be reassigned. Use `unref` to turn into a plain value
 type ReferenceValue struct {
 	val *Value
 }
@@ -115,6 +133,7 @@ func unref(value Value) Value {
 	return value
 }
 
+// Turn a variable into its resolution
 func unwrap(value Value, frame *StackFrame) (Value, error) {
 	if idValue, okId := value.(IdentifierValue); okId {
 		return frame.Get(idValue.val)
@@ -240,12 +259,12 @@ func (functionValue FunctionValue) Exec(position string, args []Value) (Value, e
 		callFrame.Set(parameter, args[i])
 	}
 	for _, statement := range functionValue.statements {
-		result, err := statement.Eval(callFrame)
+		if statement.Return != nil {
+			return statement.Return.Expr.Eval(callFrame)
+		}
+		_, err := statement.Eval(callFrame)
 		if err != nil {
 			return nil, err
-		}
-		if statement.Return != nil {
-			return result, nil
 		}
 	}
 	return UndefinedValue{}, nil
@@ -389,8 +408,16 @@ func (statement Statement) Eval(frame *StackFrame) (Value, error) {
 		return statement.While.Eval(frame)
 	}
 	if statement.Return != nil {
-		// TODO: don't allow return outside of functions
-		return statement.Return.Expr.Eval(frame)
+		return nil, traceError(frame, statement.Pos.String(),
+			"return statement used outside of a function")
+	}
+	if statement.Break != nil {
+		return nil, traceError(frame, statement.Pos.String(),
+			"break statement used outside of a loop")
+	}
+	if statement.Continue != nil {
+		return nil, traceError(frame, statement.Pos.String(),
+			"continue statement used outside of a loop")
 	}
 	if statement.Expr != nil {
 		return statement.Expr.Eval(frame)
@@ -696,7 +723,7 @@ func (comparison Comparison) Eval(frame *StackFrame) (Value, error) {
 				*comparison.Op == ">=" && leftNum.val >= rightNum.val}, nil
 		}
 	}
-	return nil, traceError(frame, comparison.Addition.Pos.String(), "only numbers can be compared with "+*comparison.Op+"  found: "+left.String()+" and "+right.String())
+	return nil, traceError(frame, comparison.Addition.Pos.String(), "only numbers can be compared with "+*comparison.Op+" found: "+left.String()+" and "+right.String())
 }
 
 func (addition Addition) String() string {
@@ -1006,22 +1033,29 @@ func evalLoop(loopFrame *StackFrame, conditionExpr *Expr, block []*Statement, po
 			return nil, err
 		}
 		if boolValue, okBool := condition.(BoolValue); okBool {
-			if boolValue.val {
-				_, err = evalBlock(loopFrame, block)
-				if err != nil {
-					return nil, err
-				}
-				if post != nil {
-					_, err = post.Eval(loopFrame)
+			if !boolValue.val {
+				return UndefinedValue{}, nil
+			}
+			for _, statement := range block {
+				if statement.Break != nil {
+					return UndefinedValue{}, nil
+				} else if statement.Continue != nil {
+					break
+				} else {
+					_, err = statement.Eval(loopFrame)
 					if err != nil {
 						return nil, err
 					}
 				}
-			} else {
-				return UndefinedValue{}, nil
+			}
+			if post != nil {
+				_, err = post.Eval(loopFrame)
+				if err != nil {
+					return nil, err
+				}
 			}
 		} else {
-			valueType, err := getType([]Value{condition})
+			valueType, err := getType(loopFrame, conditionExpr.Pos.String(), []Value{condition})
 			if err != nil {
 				return nil, err
 			}
@@ -1036,10 +1070,18 @@ func evalCallChain(frame *StackFrame, value Value, callChain *CallChain) (Value,
 		value = unref(value)
 		if callChain.Index != nil {
 			if dictValue, okDict := value.(DictValue); okDict {
-				exprs, err := evalExprs(frame, []*Expr{callChain.Index.Expr})
-				index := exprs[0]
+				index, err := callChain.Index.Expr.Eval(frame)
 				if err != nil {
 					return nil, err
+				}
+				index, err = unwrap(index, frame)
+				if err != nil {
+					return nil, err
+				}
+				index = unref(index)
+				// When indexing a dict by number, we stringify it
+				if numberValue, okNumber := index.(NumberValue); okNumber {
+					index = StringValue{val: []byte(nvToS(numberValue))}
 				}
 				if stringValue, okString := index.(StringValue); okString {
 					reference, err := dictValue.Get(string(stringValue.val))
@@ -1049,7 +1091,7 @@ func evalCallChain(frame *StackFrame, value Value, callChain *CallChain) (Value,
 						value = ReferenceValue{val: reference}
 					}
 				} else {
-					valueType, err := getType(exprs)
+					valueType, err := getType(frame, callChain.Index.Expr.Pos.String(), []Value{index})
 					if err != nil {
 						return nil, err
 					}
@@ -1057,11 +1099,15 @@ func evalCallChain(frame *StackFrame, value Value, callChain *CallChain) (Value,
 				}
 			}
 			if listValue, okList := value.(ListValue); okList {
-				exprs, err := evalExprs(frame, []*Expr{callChain.Index.Expr})
-				index := exprs[0]
+				index, err := callChain.Index.Expr.Eval(frame)
 				if err != nil {
 					return nil, err
 				}
+				index, err = unwrap(index, frame)
+				if err != nil {
+					return nil, err
+				}
+				index = unref(index)
 				if numberValue, okNumber := index.(NumberValue); okNumber {
 					// Note that floats are floored here
 					value, err = listValue.Get(int(numberValue.val))
@@ -1069,7 +1115,7 @@ func evalCallChain(frame *StackFrame, value Value, callChain *CallChain) (Value,
 						return nil, traceError(frame, callChain.Index.Expr.Pos.String(), err.Error())
 					}
 				} else {
-					valueType, err := getType(exprs)
+					valueType, err := getType(frame, callChain.Index.Expr.Pos.String(), []Value{index})
 					if err != nil {
 						return nil, err
 					}
@@ -1094,18 +1140,20 @@ func evalCallChain(frame *StackFrame, value Value, callChain *CallChain) (Value,
 			if err != nil {
 				return nil, err
 			}
+			// TODO: do we need unwrap/unref here?
 			if function, okFunction := value.(FunctionValue); okFunction {
 				value, err = function.Exec(callChain.Pos.String(), args)
 				if err != nil {
 					return nil, err
 				}
-			}
-			if nativeFunction, okNativeFunction := value.(NativeFunctionValue); okNativeFunction {
+			} else if nativeFunction, okNativeFunction := value.(NativeFunctionValue); okNativeFunction {
 				nativeFunction.frame = frame
 				value, err = nativeFunction.Exec(frame, callChain.Pos.String(), args)
 				if err != nil {
 					return nil, err
 				}
+			} else {
+				return nil, traceError(frame, callChain.Pos.String(), "only functions can be called")
 			}
 		}
 		if callChain.Next == nil {
