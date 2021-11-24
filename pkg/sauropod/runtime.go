@@ -1,11 +1,11 @@
 package sauropod
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	"strings"
 	"time"
-
-	"github.com/alecthomas/participle/v2/lexer"
 )
 
 func setNativeFunc(key string, nativeFunc Value, frame *StackFrame) {
@@ -18,11 +18,11 @@ func InjectRuntime(context *Context) {
 	setNativeFunc("time", NativeFunctionValue{name: "time", Exec: runTime}, &context.stackFrame)
 	setNativeFunc("type", NativeFunctionValue{name: "type", Exec: getType}, &context.stackFrame)
 	setNativeFunc("str", NativeFunctionValue{name: "str", Exec: getStr}, &context.stackFrame)
+	setNativeFunc("read_lines", NativeFunctionValue{name: "read_lines", Exec: readLines}, &context.stackFrame)
 }
 
 type NativeFunctionValue struct {
 	frame *StackFrame
-	Pos   lexer.Position
 	name  string
 	Exec  func(*StackFrame, string, []Value) (Value, error)
 }
@@ -41,7 +41,7 @@ func (nativeFunctionValue NativeFunctionValue) Equals(other Value) (bool, error)
 func runAssert(frame *StackFrame, position string, args []Value) (Value, error) {
 	if len(args) != 2 {
 		return nil, traceError(frame, position,
-			fmt.Sprintf("assert: incorrect number of arguments, wanted: %v, got: %v", 2, len(args)))
+			fmt.Sprintf("assert: incorrect number of arguments, wanted: 2, got: %v", len(args)))
 	}
 	equal, err := args[0].Equals(args[1])
 	if err != nil {
@@ -128,4 +128,57 @@ func getStr(frame *StackFrame, position string, args []Value) (Value, error) {
 	}
 	return nil, traceError(frame, position,
 		fmt.Sprintf("str: expects 1 argument of type string, number, or bool, got: %v", valueType))
+}
+
+func readLines(frame *StackFrame, position string, args []Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, traceError(frame, position,
+			fmt.Sprintf("read_lines: incorrect number of arguments, wanted: 2, got: %v", len(args)))
+	}
+	var path string
+	var callback FunctionValue
+	if stringValue, stringOk := args[0].(StringValue); stringOk {
+		path = stringValue.String()
+	} else {
+		valueType, err := getType(frame, position, args)
+		if err != nil {
+			return nil, err
+		}
+		return nil, traceError(frame, position,
+			fmt.Sprintf("read_lines: expects the 1st argument to be a filepath, got: %v", valueType))
+	}
+	if functionValue, functionOk := args[1].(FunctionValue); functionOk {
+		callback = functionValue
+	} else {
+		valueType, err := getType(frame, position, args)
+		if err != nil {
+			return nil, err
+		}
+		return nil, traceError(frame, position,
+			fmt.Sprintf("read_lines: expects the 2nd argument to be a function, got: %v", valueType))
+	}
+
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, traceError(frame, position,
+			fmt.Sprintf("read_lines: while reading %v: %v", path, err))
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		arg := StringValue{val: []byte(scanner.Text())}
+		_, err = callback.Exec(callback.position, []Value{arg})
+		if err != nil {
+			return nil, traceError(frame, position,
+				fmt.Sprintf("read_lines: while reading %v: %v", path, err))
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		if err != nil {
+			return nil, traceError(frame, position,
+				fmt.Sprintf("read_lines: while reading %v: %v", path, err))
+		}
+	}
+	return UndefinedValue{}, nil
 }
