@@ -12,6 +12,3 @@ let set = func(list) {
         "has": func(x) { return store[x] == true }
     }
 };
-let nums = set([1, 2, 3]);
-nums.set(4);
-log(nums.has(4)); // true

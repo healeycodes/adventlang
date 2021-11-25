@@ -8,13 +8,14 @@ import (
 )
 
 type StackFrame struct {
-	trace   string
-	entries map[string]Value
-	parent  *StackFrame
+	filename string
+	trace    string
+	entries  map[string]Value
+	parent   *StackFrame
 }
 
 func traceError(frame *StackFrame, position string, message string) error {
-	s := frame.trace + "\n" + position + " " + message
+	s := frame.trace + "\n" + frame.filename + ":" + position + ": " + message
 	for {
 		if parent := frame.parent; parent != nil {
 			frame = parent
@@ -29,8 +30,12 @@ type Context struct {
 	stackFrame StackFrame
 }
 
-func (context *Context) Init() {
-	context.stackFrame = StackFrame{trace: "", entries: make(map[string]Value)}
+func (context *Context) Init(filename string) {
+	context.stackFrame = StackFrame{
+		filename: filename,
+		trace:    "",
+		entries:  make(map[string]Value),
+	}
 }
 
 func (frame *StackFrame) String() string {
@@ -51,7 +56,12 @@ func (frame *StackFrame) String() string {
 }
 
 func (frame *StackFrame) GetChild(trace string) *StackFrame {
-	childFrame := StackFrame{trace: trace, parent: frame, entries: make(map[string]Value)}
+	childFrame := StackFrame{
+		filename: frame.filename,
+		trace:    trace,
+		parent:   frame,
+		entries:  make(map[string]Value),
+	}
 	return &childFrame
 }
 
@@ -133,7 +143,7 @@ func unref(value Value) Value {
 	return value
 }
 
-// Turn a variable into its resolution
+// Turn an identifier into its resolution
 func unwrap(value Value, frame *StackFrame) (Value, error) {
 	if idValue, okId := value.(IdentifierValue); okId {
 		return frame.Get(idValue.val)
@@ -1055,7 +1065,7 @@ func evalLoop(loopFrame *StackFrame, conditionExpr *Expr, block []*Statement, po
 				}
 			}
 		} else {
-			valueType, err := getType(loopFrame, conditionExpr.Pos.String(), []Value{condition})
+			valueType, err := doType(loopFrame, conditionExpr.Pos.String(), []Value{condition})
 			if err != nil {
 				return nil, err
 			}
@@ -1091,7 +1101,7 @@ func evalCallChain(frame *StackFrame, value Value, callChain *CallChain) (Value,
 						value = ReferenceValue{val: reference}
 					}
 				} else {
-					valueType, err := getType(frame, callChain.Index.Expr.Pos.String(), []Value{index})
+					valueType, err := doType(frame, callChain.Index.Expr.Pos.String(), []Value{index})
 					if err != nil {
 						return nil, err
 					}
@@ -1115,17 +1125,14 @@ func evalCallChain(frame *StackFrame, value Value, callChain *CallChain) (Value,
 						return nil, traceError(frame, callChain.Index.Expr.Pos.String(), err.Error())
 					}
 				} else {
-					valueType, err := getType(frame, callChain.Index.Expr.Pos.String(), []Value{index})
+					valueType, err := doType(frame, callChain.Index.Expr.Pos.String(), []Value{index})
 					if err != nil {
 						return nil, err
 					}
 					return nil, traceError(frame, callChain.Pos.String(), fmt.Sprintf("lists can only be accessed by number: got '%v' of type %v", index, valueType))
 				}
 			}
-		}
-		if callChain.Property != nil {
-			// TODO: Dict API (keys, values)
-			// TODO: List API (append, etc.)
+		} else if callChain.Property != nil {
 			if dictValue, okDict := value.(DictValue); okDict {
 				reference, err := dictValue.Get(*callChain.Property.Ident)
 				if err != nil {
@@ -1134,8 +1141,45 @@ func evalCallChain(frame *StackFrame, value Value, callChain *CallChain) (Value,
 					value = ReferenceValue{val: reference}
 				}
 			}
-		}
-		if callChain.Args != nil {
+			if listValue, okList := value.(ListValue); okList {
+
+				// Check that the function will be called
+				if callChain.Next != nil && callChain.Next.Args != nil {
+					// Evaluate the arguments into values
+					args, err := evalExprs(frame, callChain.Next.Args.Exprs)
+					if err != nil {
+						return nil, err
+					}
+					// Prepend the list value to the args
+					// Note: args might be empty
+					args = append([]Value{listValue}, args...)
+
+					// Check for list functions
+					if *callChain.Property.Ident == "append" {
+						value, err = doAppend(frame, callChain.Pos.String(), args)
+					} else if *callChain.Property.Ident == "pop" {
+						value, err = doPop(frame, callChain.Pos.String(), args)
+					} else if *callChain.Property.Ident == "prepend" {
+						value, err = doPrepend(frame, callChain.Pos.String(), args)
+					} else if *callChain.Property.Ident == "prepop" {
+						value, err = doPrepop(frame, callChain.Pos.String(), args)
+					} else {
+						return nil, traceError(frame, callChain.Next.Pos.String(),
+							"unknown list function: "+*callChain.Property.Ident)
+					}
+
+					if err != nil {
+						return nil, err
+					}
+					// Fast forward the callChain as we just handled the next step
+					callChain = callChain.Next
+				} else {
+					// TODO: Are there any list properties we want to implement?
+					return nil, traceError(frame, callChain.Pos.String(),
+						"unknown list property: "+*callChain.Property.Ident)
+				}
+			}
+		} else if callChain.Args != nil {
 			args, err := evalExprs(frame, callChain.Args.Exprs)
 			if err != nil {
 				return nil, err

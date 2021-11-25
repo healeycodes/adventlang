@@ -8,17 +8,30 @@ import (
 	"time"
 )
 
-func setNativeFunc(key string, nativeFunc Value, frame *StackFrame) {
-	frame.entries[key] = nativeFunc
+// A note on function naming
+// Use doFunction to avoid polluting the Go namespace with e.g.
+// append, time, etc.
+
+// Given a root content, add runtime functions to the module's scope
+func InjectRuntime(context *Context) {
+	setNativeFunc("import", NativeFunctionValue{name: "import", Exec: doImport}, &context.stackFrame)
+	setNativeFunc("keys", NativeFunctionValue{name: "keys", Exec: doKeys}, &context.stackFrame)
+	setNativeFunc("values", NativeFunctionValue{name: "keys", Exec: doValues}, &context.stackFrame)
+	setNativeFunc("len", NativeFunctionValue{name: "len", Exec: doLen}, &context.stackFrame)
+	setNativeFunc("append", NativeFunctionValue{name: "append", Exec: doAppend}, &context.stackFrame)
+	setNativeFunc("prepend", NativeFunctionValue{name: "prepend", Exec: doPrepend}, &context.stackFrame)
+	setNativeFunc("pop", NativeFunctionValue{name: "pop", Exec: doPop}, &context.stackFrame)
+	setNativeFunc("prepop", NativeFunctionValue{name: "prepop", Exec: doPrepop}, &context.stackFrame)
+	setNativeFunc("assert", NativeFunctionValue{name: "assert", Exec: doAssert}, &context.stackFrame)
+	setNativeFunc("log", NativeFunctionValue{name: "log", Exec: doLog}, &context.stackFrame)
+	setNativeFunc("time", NativeFunctionValue{name: "time", Exec: doTime}, &context.stackFrame)
+	setNativeFunc("type", NativeFunctionValue{name: "type", Exec: doType}, &context.stackFrame)
+	setNativeFunc("str", NativeFunctionValue{name: "str", Exec: doStr}, &context.stackFrame)
+	setNativeFunc("read_lines", NativeFunctionValue{name: "read_lines", Exec: doReadLines}, &context.stackFrame)
 }
 
-func InjectRuntime(context *Context) {
-	setNativeFunc("assert", NativeFunctionValue{name: "assert", Exec: runAssert}, &context.stackFrame)
-	setNativeFunc("log", NativeFunctionValue{name: "log", Exec: runLog}, &context.stackFrame)
-	setNativeFunc("time", NativeFunctionValue{name: "time", Exec: runTime}, &context.stackFrame)
-	setNativeFunc("type", NativeFunctionValue{name: "type", Exec: getType}, &context.stackFrame)
-	setNativeFunc("str", NativeFunctionValue{name: "str", Exec: getStr}, &context.stackFrame)
-	setNativeFunc("read_lines", NativeFunctionValue{name: "read_lines", Exec: readLines}, &context.stackFrame)
+func setNativeFunc(key string, nativeFunc Value, frame *StackFrame) {
+	frame.entries[key] = nativeFunc
 }
 
 type NativeFunctionValue struct {
@@ -38,7 +51,178 @@ func (nativeFunctionValue NativeFunctionValue) Equals(other Value) (bool, error)
 	return false, nil
 }
 
-func runAssert(frame *StackFrame, position string, args []Value) (Value, error) {
+func doImport(frame *StackFrame, position string, args []Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, traceError(frame, position,
+			fmt.Sprintf("import: incorrect number of arguments, wanted: 1, got: %v ", len(args)))
+	}
+	if strValue, okStr := args[0].(StringValue); okStr {
+		source := ReadProgram(strValue.String())
+		_, context, err := RunProgram(strValue.String(), source)
+		if err != nil {
+			return nil, err
+		}
+		dictValue := DictValue{val: map[string]*Value{}}
+		for id, value := range context.stackFrame.entries {
+			dictValue.Set(id, value)
+		}
+		return dictValue, nil
+	}
+	argType, err := doType(frame, position, []Value{args[0]})
+	if err != nil {
+		return nil, err
+	}
+	return nil, traceError(frame, position,
+		"import: the single argument should be a string, got: "+argType.String())
+}
+
+func doKeys(frame *StackFrame, position string, args []Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, traceError(frame, position,
+			fmt.Sprintf("keys: incorrect number of arguments, wanted: 1, got: %v ", len(args)))
+	}
+	if dictValue, okDict := args[0].(DictValue); okDict {
+		listValue := ListValue{val: make(map[int]*Value)}
+		for key := range dictValue.val {
+			listValue.Append(StringValue{val: []byte(key)})
+		}
+		return listValue, nil
+	}
+	argType, err := doType(frame, position, []Value{args[0]})
+	if err != nil {
+		return nil, err
+	}
+	return nil, traceError(frame, position,
+		"keys: the single argument should be a dictionary, got: "+argType.String())
+}
+
+func doValues(frame *StackFrame, position string, args []Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, traceError(frame, position,
+			fmt.Sprintf("values: incorrect number of arguments, wanted: 1, got: %v ", len(args)))
+	}
+	if dictValue, okDict := args[0].(DictValue); okDict {
+		listValue := ListValue{val: make(map[int]*Value)}
+		for key := range dictValue.val {
+			value, err := dictValue.Get(key)
+			if err != nil {
+				panic(err)
+			}
+			listValue.Append(*value)
+		}
+		return listValue, nil
+	}
+	argType, err := doType(frame, position, []Value{args[0]})
+	if err != nil {
+		return nil, err
+	}
+	return nil, traceError(frame, position,
+		"values: the single argument should be a dictionary, got: "+argType.String())
+}
+
+func doLen(frame *StackFrame, position string, args []Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, traceError(frame, position,
+			fmt.Sprintf("len: incorrect number of arguments, wanted: 1, got: %v ", len(args)))
+	}
+	if idValue, idOk := args[0].(IdentifierValue); idOk {
+		unwrapped, err := unwrap(idValue, frame)
+		if err != nil {
+			return nil, err
+		}
+		return doLen(frame, position, []Value{unwrapped})
+	}
+	if strValue, strOk := args[0].(StringValue); strOk {
+		return NumberValue{val: float64(len(strValue.val))}, nil
+	}
+	if listValue, listOk := args[0].(ListValue); listOk {
+		return NumberValue{val: float64(len(listValue.val))}, nil
+	}
+	argType, err := doType(frame, position, []Value{args[0]})
+	if err != nil {
+		return nil, err
+	}
+	return nil, traceError(frame, position,
+		"len: the single argument should be a variable, string, or list, got: "+argType.String())
+}
+
+func doAppend(frame *StackFrame, position string, args []Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, traceError(frame, position,
+			fmt.Sprintf("append: incorrect number of arguments, wanted: 2, got: %v ", len(args)))
+	}
+	if listValue, listOk := args[0].(ListValue); listOk {
+		// Second argument can be any type
+		// anything the user has access to should fit in a list
+		listValue.Append(args[1])
+		return UndefinedValue{}, nil
+	}
+	firstType, err := doType(frame, position, []Value{args[0]})
+	if err != nil {
+		return nil, err
+	}
+	return nil, traceError(frame, position,
+		"append: first argument should be a list, got: "+firstType.String())
+}
+
+func doPrepend(frame *StackFrame, position string, args []Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, traceError(frame, position,
+			fmt.Sprintf("prepend: incorrect number of arguments, wanted: 2, got: %v ", len(args)))
+	}
+	if listValue, listOk := args[0].(ListValue); listOk {
+		// Second argument can be any type
+		// anything the user has access to should fit in a list
+		listValue.Prepend(args[1])
+		return UndefinedValue{}, nil
+	}
+	firstType, err := doType(frame, position, []Value{args[0]})
+	if err != nil {
+		return nil, err
+	}
+	return nil, traceError(frame, position,
+		"prepend: first argument should be a list, got: "+firstType.String())
+}
+
+func doPop(frame *StackFrame, position string, args []Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, traceError(frame, position,
+			fmt.Sprintf("pop: incorrect number of arguments, wanted: 1, got: %v ", len(args)))
+	}
+	if listValue, listOk := args[0].(ListValue); listOk {
+		if len(listValue.val) == 0 {
+			return nil, traceError(frame, position, "pop: called on an empty list")
+		}
+		return listValue.Pop(), nil
+	}
+	firstType, err := doType(frame, position, []Value{args[0]})
+	if err != nil {
+		return nil, err
+	}
+	return nil, traceError(frame, position,
+		"pop: the single argument should be a list, got: "+firstType.String())
+}
+
+func doPrepop(frame *StackFrame, position string, args []Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, traceError(frame, position,
+			fmt.Sprintf("prepop: incorrect number of arguments, wanted: 1, got: %v ", len(args)))
+	}
+	if listValue, listOk := args[0].(ListValue); listOk {
+		if len(listValue.val) == 0 {
+			return nil, traceError(frame, position, "prepop: called on an empty list")
+		}
+		return listValue.PopLeft(), nil
+	}
+	firstType, err := doType(frame, position, []Value{args[0]})
+	if err != nil {
+		return nil, err
+	}
+	return nil, traceError(frame, position,
+		"prepop: the single argument should be a list, got: "+firstType.String())
+}
+
+func doAssert(frame *StackFrame, position string, args []Value) (Value, error) {
 	if len(args) != 2 {
 		return nil, traceError(frame, position,
 			fmt.Sprintf("assert: incorrect number of arguments, wanted: 2, got: %v", len(args)))
@@ -53,7 +237,7 @@ func runAssert(frame *StackFrame, position string, args []Value) (Value, error) 
 	return UndefinedValue{}, nil
 }
 
-func runLog(frame *StackFrame, position string, args []Value) (Value, error) {
+func doLog(frame *StackFrame, position string, args []Value) (Value, error) {
 	if len(args) == 0 {
 		return nil, traceError(frame, position,
 			fmt.Sprintf("log: incorrect number of arguments, wanted: at least 1, got: %v", len(args)))
@@ -66,7 +250,7 @@ func runLog(frame *StackFrame, position string, args []Value) (Value, error) {
 	return UndefinedValue{}, nil
 }
 
-func runTime(frame *StackFrame, position string, args []Value) (Value, error) {
+func doTime(frame *StackFrame, position string, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return nil, traceError(frame, position,
 			fmt.Sprintf("time: incorrect number of arguments, wanted: 0, got: %v", len(args)))
@@ -74,7 +258,7 @@ func runTime(frame *StackFrame, position string, args []Value) (Value, error) {
 	return NumberValue{val: float64(time.Now().UnixNano() / int64(time.Millisecond))}, nil
 }
 
-func getType(frame *StackFrame, position string, args []Value) (Value, error) {
+func doType(frame *StackFrame, position string, args []Value) (Value, error) {
 	if len(args) != 1 {
 		return nil, traceError(frame, position,
 			fmt.Sprintf("type: incorrect number of arguments, wanted: 1, got: %v", len(args)))
@@ -103,7 +287,7 @@ func getType(frame *StackFrame, position string, args []Value) (Value, error) {
 	panic("unreachable")
 }
 
-func getStr(frame *StackFrame, position string, args []Value) (Value, error) {
+func doStr(frame *StackFrame, position string, args []Value) (Value, error) {
 	if len(args) != 1 {
 		return nil, traceError(frame, position,
 			fmt.Sprintf("str: incorrect number of arguments, wanted: 1, got: %v", len(args)))
@@ -122,15 +306,15 @@ func getStr(frame *StackFrame, position string, args []Value) (Value, error) {
 		return StringValue{val: []byte("false")}, nil
 	}
 
-	valueType, err := getType(frame, position, args)
+	valueType, err := doType(frame, position, args)
 	if err != nil {
 		return nil, err
 	}
 	return nil, traceError(frame, position,
-		fmt.Sprintf("str: expects 1 argument of type string, number, or bool, got: %v", valueType))
+		fmt.Sprintf("str: expects a single argument of type string, number, or bool, got: %v", valueType))
 }
 
-func readLines(frame *StackFrame, position string, args []Value) (Value, error) {
+func doReadLines(frame *StackFrame, position string, args []Value) (Value, error) {
 	if len(args) != 2 {
 		return nil, traceError(frame, position,
 			fmt.Sprintf("read_lines: incorrect number of arguments, wanted: 2, got: %v", len(args)))
@@ -140,7 +324,7 @@ func readLines(frame *StackFrame, position string, args []Value) (Value, error) 
 	if stringValue, stringOk := args[0].(StringValue); stringOk {
 		path = stringValue.String()
 	} else {
-		valueType, err := getType(frame, position, args)
+		valueType, err := doType(frame, position, args)
 		if err != nil {
 			return nil, err
 		}
@@ -150,7 +334,7 @@ func readLines(frame *StackFrame, position string, args []Value) (Value, error) 
 	if functionValue, functionOk := args[1].(FunctionValue); functionOk {
 		callback = functionValue
 	} else {
-		valueType, err := getType(frame, position, args)
+		valueType, err := doType(frame, position, args)
 		if err != nil {
 			return nil, err
 		}

@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/healeycodes/sauropod/pkg/sauropod"
@@ -13,18 +12,13 @@ func main() {
 	flag.Parse()
 	filename := flag.Arg(0)
 	if filename == "" {
-		panic("missing file arg")
+		panic("missing file argument")
 	}
 
-	b, err := ioutil.ReadFile(filename)
+	source := sauropod.ReadProgram(filename)
+	result, _, err := sauropod.RunProgram(filename, source)
 	if err != nil {
-		println("error reading:", filename, err.Error())
-		os.Exit(1)
-	}
-
-	result, err := sauropod.RunProgram(filename, string(b))
-	if err != nil {
-		println("uh oh..", err.Error())
+		println("uh oh.. while running: "+filename, err.Error(), "\n")
 		os.Exit(1)
 	}
 
