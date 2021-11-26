@@ -1,4 +1,8 @@
 notebook
+adventlang-linux
+adventlang-windows
+adventlang-darwin
+adventlang-darwin-arm64
 
 # Binaries for programs and plugins
 *.exe
