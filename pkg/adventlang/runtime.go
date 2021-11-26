@@ -1,4 +1,4 @@
-package sauropod
+package adventlang
 
 import (
 	"bufio"
