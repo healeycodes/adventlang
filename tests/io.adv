@@ -1,0 +1,7 @@
+let lines = 0;
+let expected = ["a", "b"];
+read_lines("tests/_example_file.txt", func(s) {
+    assert(s, expected[lines]);
+    lines = lines + 1;
+});
+assert(lines, 2);

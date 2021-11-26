@@ -1,0 +1,11 @@
+let d = {"b": 2};
+assert(keys(d)[0], "b");
+assert(values(d)[0], 2);
+
+d.chain = {};
+d["chain"]["assign"] = 4;
+assert(d["chain"]["assign"], 4);
+
+let computed_key = "a";
+let e = {computed_key: 1};
+assert(e["a"], 1);

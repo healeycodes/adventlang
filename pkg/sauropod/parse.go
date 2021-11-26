@@ -14,16 +14,15 @@ type Program struct {
 type Statement struct {
 	Pos lexer.Position
 
-	If       *IfStatement     `@@`
-	For      *ForStatement    `| @@`
-	While    *WhileStatement  `| @@`
-	Return   *ReturnStatement `| @@`
-	Break    *string          `| @"break"`
-	Continue *string          `| @"continue"`
-	Expr     *Expr            `| @@ ";"`
-	// TODO: could allow trailing semi-colons
-	// so "break;" and "return 1;" are valid?
-	// Would need to skip semis in Statement.Eval
+	If    *IfStatement    `@@`
+	For   *ForStatement   `| @@`
+	While *WhileStatement `| @@`
+	// These optional semi-colons could cause problems
+	Return   *ReturnStatement `| @@ ";"?`
+	Break    *string          `| @"break" ";"?`
+	Continue *string          `| @"continue" ";"?`
+	// --
+	Expr *Expr `| @@ ";"`
 }
 
 type IfStatement struct {
@@ -65,26 +64,26 @@ type Expr struct {
 type Assignment struct {
 	Pos lexer.Position
 
-	Let      *string   `@"let"?`
-	LogicAnd *LogicAnd `@@`
-	Op       *string   `( @"="`
-	Next     *LogicAnd `  @@ )?`
-}
-
-type LogicAnd struct {
-	Pos lexer.Position
-
-	LogicOr *LogicOr  `@@`
-	Op      *string   `( @( "and" )`
-	Next    *LogicAnd `  @@ )?`
+	Let     *string     `@"let"?`
+	LogicOr *LogicOr    `@@`
+	Op      *string     `( @"="`
+	Next    *Assignment `  @@ )?`
 }
 
 type LogicOr struct {
 	Pos lexer.Position
 
-	Equality *Equality `@@`
-	Op       *string   `( @( "or" )`
+	LogicAnd *LogicAnd `@@`
+	Op       *string   `( @"or"`
 	Next     *LogicOr  `  @@ )?`
+}
+
+type LogicAnd struct {
+	Pos lexer.Position
+
+	Equality *Equality `@@`
+	Op       *string   `( @"and"`
+	Next     *LogicAnd `  @@ )?`
 }
 
 type Equality struct {
@@ -115,7 +114,7 @@ type Multiplication struct {
 	Pos lexer.Position
 
 	Unary *Unary          `@@`
-	Op    *string         `[ @( "/" | "*" )`
+	Op    *string         `[ @( "/" | "*" | "%" )`
 	Next  *Multiplication `  @@ ]`
 }
 

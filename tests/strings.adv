@@ -1,0 +1,4 @@
+let name = "Alice";
+assert(name[0], "A");
+assert(len(name), 5);
+assert(name + "!", "Alice!");

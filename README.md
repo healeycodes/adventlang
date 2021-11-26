@@ -1,2 +1,2 @@
-# sauropod
-🦕 a programming language
+# adventlang
+🎅 a programming language

@@ -1,0 +1,44 @@
+let puzzle = [];
+read_lines("tests/advent_2019_1.txt", func(s) {
+    puzzle.append(num(s));
+});
+
+let empty = true;
+for (let i = 0; i < len(puzzle); i = i + 1) {
+    empty = false;
+
+    // Check that we only store numbers
+    assert(type(puzzle[i]), "number");
+}
+
+// Check we got at least some data
+assert(empty, false);
+
+// In-line maximum function
+let max = func (x, y) {
+    if (x > y) {
+        return x
+    }
+    return y
+};
+
+// Puzzle solution
+let part_one_fuel = 0;
+for (let i = 0; i < len(puzzle); i = i + 1) {
+    let mass = puzzle[i];
+    let fuel = floor(mass / 3) - 2;
+    part_one_fuel = part_one_fuel + fuel;
+}
+assert(part_one_fuel, 3275518);
+
+let part_two_fuel = 0;
+for (let i = 0; i < len(puzzle); i = i + 1) {
+    let mass = puzzle[i];
+    let fuel = floor(mass / 3) - 2;
+    part_two_fuel = part_two_fuel + fuel;
+    while (fuel > 0) {
+        fuel = max(0, floor(fuel / 3) - 2);
+        part_two_fuel = part_two_fuel + fuel;
+    }
+}
+assert(part_two_fuel, 4910404);

@@ -1,0 +1,17 @@
+let t = time();
+
+// Import tests files here
+// we'll exit status 1 on any failures
+import("tests/advent_2019_1.adv");
+import("tests/logic.adv");
+import("tests/runtime.adv");
+import("tests/dicts.adv");
+import("tests/lists.adv");
+import("tests/loops.adv");
+import("tests/functions.adv");
+import("tests/assigning.adv");
+import("tests/numbers.adv");
+import("tests/strings.adv");
+import("tests/io.adv");
+
+"all tests passed in " + str(time() - t) + "ms";

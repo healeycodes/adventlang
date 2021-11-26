@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -17,6 +18,7 @@ func InjectRuntime(context *Context) {
 	setNativeFunc("import", NativeFunctionValue{name: "import", Exec: doImport}, &context.stackFrame)
 	setNativeFunc("keys", NativeFunctionValue{name: "keys", Exec: doKeys}, &context.stackFrame)
 	setNativeFunc("values", NativeFunctionValue{name: "keys", Exec: doValues}, &context.stackFrame)
+	setNativeFunc("delete", NativeFunctionValue{name: "delete", Exec: doDelete}, &context.stackFrame)
 	setNativeFunc("len", NativeFunctionValue{name: "len", Exec: doLen}, &context.stackFrame)
 	setNativeFunc("append", NativeFunctionValue{name: "append", Exec: doAppend}, &context.stackFrame)
 	setNativeFunc("prepend", NativeFunctionValue{name: "prepend", Exec: doPrepend}, &context.stackFrame)
@@ -27,6 +29,8 @@ func InjectRuntime(context *Context) {
 	setNativeFunc("time", NativeFunctionValue{name: "time", Exec: doTime}, &context.stackFrame)
 	setNativeFunc("type", NativeFunctionValue{name: "type", Exec: doType}, &context.stackFrame)
 	setNativeFunc("str", NativeFunctionValue{name: "str", Exec: doStr}, &context.stackFrame)
+	setNativeFunc("num", NativeFunctionValue{name: "num", Exec: doNum}, &context.stackFrame)
+	setNativeFunc("floor", NativeFunctionValue{name: "floor", Exec: doFloor}, &context.stackFrame)
 	setNativeFunc("read_lines", NativeFunctionValue{name: "read_lines", Exec: doReadLines}, &context.stackFrame)
 }
 
@@ -51,6 +55,8 @@ func (nativeFunctionValue NativeFunctionValue) Equals(other Value) (bool, error)
 	return false, nil
 }
 
+// When importing, we run other modules as if they are standalone programs.
+// When the program completes, we take its top level scope and return a dict
 func doImport(frame *StackFrame, position string, args []Value) (Value, error) {
 	if len(args) != 1 {
 		return nil, traceError(frame, position,
@@ -120,6 +126,34 @@ func doValues(frame *StackFrame, position string, args []Value) (Value, error) {
 		"values: the single argument should be a dictionary, got: "+argType.String())
 }
 
+func doDelete(frame *StackFrame, position string, args []Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, traceError(frame, position,
+			fmt.Sprintf("delete: incorrect number of arguments, wanted: 2, got: %v ", len(args)))
+	}
+
+	if dictValue, okDict := args[0].(DictValue); okDict {
+		if strValue, okStr := args[1].(StringValue); okStr {
+			dictValue.Delete(strValue.String())
+			return UndefinedValue{}, nil
+		} else {
+			secondType, err := doType(frame, position, []Value{args[0]})
+			if err != nil {
+				return nil, err
+			}
+			return nil, traceError(frame, position,
+				"delete: the 2nd argument should be a string, got: "+secondType.String())
+		}
+	} else {
+		firstType, err := doType(frame, position, []Value{args[0]})
+		if err != nil {
+			return nil, err
+		}
+		return nil, traceError(frame, position,
+			"delete: 1st argument should be a dictionary, got: "+firstType.String())
+	}
+}
+
 func doLen(frame *StackFrame, position string, args []Value) (Value, error) {
 	if len(args) != 1 {
 		return nil, traceError(frame, position,
@@ -152,7 +186,7 @@ func doAppend(frame *StackFrame, position string, args []Value) (Value, error) {
 			fmt.Sprintf("append: incorrect number of arguments, wanted: 2, got: %v ", len(args)))
 	}
 	if listValue, listOk := args[0].(ListValue); listOk {
-		// Second argument can be any type
+		// 2nd argument can be any type
 		// anything the user has access to should fit in a list
 		listValue.Append(args[1])
 		return UndefinedValue{}, nil
@@ -162,7 +196,7 @@ func doAppend(frame *StackFrame, position string, args []Value) (Value, error) {
 		return nil, err
 	}
 	return nil, traceError(frame, position,
-		"append: first argument should be a list, got: "+firstType.String())
+		"append: 1st argument should be a list, got: "+firstType.String())
 }
 
 func doPrepend(frame *StackFrame, position string, args []Value) (Value, error) {
@@ -171,7 +205,7 @@ func doPrepend(frame *StackFrame, position string, args []Value) (Value, error) 
 			fmt.Sprintf("prepend: incorrect number of arguments, wanted: 2, got: %v ", len(args)))
 	}
 	if listValue, listOk := args[0].(ListValue); listOk {
-		// Second argument can be any type
+		// 2nd argument can be any type
 		// anything the user has access to should fit in a list
 		listValue.Prepend(args[1])
 		return UndefinedValue{}, nil
@@ -181,7 +215,7 @@ func doPrepend(frame *StackFrame, position string, args []Value) (Value, error) 
 		return nil, err
 	}
 	return nil, traceError(frame, position,
-		"prepend: first argument should be a list, got: "+firstType.String())
+		"prepend: 1st argument should be a list, got: "+firstType.String())
 }
 
 func doPop(frame *StackFrame, position string, args []Value) (Value, error) {
@@ -232,7 +266,8 @@ func doAssert(frame *StackFrame, position string, args []Value) (Value, error) {
 		return nil, err
 	}
 	if !equal {
-		return nil, fmt.Errorf("assert failed: %v == %v", args[0], args[1])
+		return nil, traceError(frame, position,
+			fmt.Sprintf("assert failed: %v == %v", args[0], args[1]))
 	}
 	return UndefinedValue{}, nil
 }
@@ -312,6 +347,45 @@ func doStr(frame *StackFrame, position string, args []Value) (Value, error) {
 	}
 	return nil, traceError(frame, position,
 		fmt.Sprintf("str: expects a single argument of type string, number, or bool, got: %v", valueType))
+}
+
+func doFloor(frame *StackFrame, position string, args []Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, traceError(frame, position,
+			fmt.Sprintf("floor: incorrect number of arguments, wanted: 1, got: %v", len(args)))
+	}
+	value := args[0]
+	if numValue, okNum := value.(NumberValue); okNum {
+		return NumberValue{val: float64(int(numValue.val))}, nil
+	}
+	valueType, err := doType(frame, position, args)
+	if err != nil {
+		return nil, err
+	}
+	return nil, traceError(frame, position,
+		fmt.Sprintf("num: expects a single argument of type number, got: %v", valueType))
+}
+
+func doNum(frame *StackFrame, position string, args []Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, traceError(frame, position,
+			fmt.Sprintf("num: incorrect number of arguments, wanted: 1, got: %v", len(args)))
+	}
+	value := args[0]
+	if strValue, okStr := value.(StringValue); okStr {
+		f, err := strconv.ParseFloat(string(strValue.val), 64)
+		if err != nil {
+			traceError(frame, position,
+				fmt.Sprintf("num: couldn't convert %v to number", strValue))
+		}
+		return NumberValue{val: f}, nil
+	}
+	valueType, err := doType(frame, position, args)
+	if err != nil {
+		return nil, err
+	}
+	return nil, traceError(frame, position,
+		fmt.Sprintf("num: expects a single argument of type string, got: %v", valueType))
 }
 
 func doReadLines(frame *StackFrame, position string, args []Value) (Value, error) {

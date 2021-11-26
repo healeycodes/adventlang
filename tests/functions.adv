@@ -1,0 +1,32 @@
+// Without return trailing comma
+let add = func(x, y) { return x + y };
+// With return trailing comma
+let add2 = func(x, y) { return x + y; };
+
+assert(add(1, 2), 3);
+assert(add2(1, 2), 3);
+
+// IIFE
+let result = (func(x) { return x + 1 })(4);
+assert(result, 5);
+
+// Return from an if block
+(func(x) {
+    if (true) {
+        return x
+    }
+})(0);
+
+// Return from a for block
+(func(x) {
+    for (;;) {
+        return x
+    }
+})(0);
+
+// Return from a while block
+(func(x) {
+    while (true) {
+        return x
+    }
+})(0);

@@ -1,0 +1,21 @@
+assert(true != false, true);
+
+// Property assign
+let d = {"a": 1};
+d.a = 2;
+assert(d.a, 2);
+
+// Index assign
+let e = {"b": 5};
+e["b"] = 50;
+assert(e["b"], 50);
+
+// Computed key assign
+let key = "a";
+let f = {key: 2};
+assert(f.a, 2);
+
+// Deep assign
+let h = {"j": {"k": [0]}};
+h.j.k[0] = 1;
+assert(h.j.k[0], 1);

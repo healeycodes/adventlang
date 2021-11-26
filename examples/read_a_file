@@ -1,6 +1,0 @@
-// log out a file line by line with line numbers
-let lines = 0;
-read_lines("example.txt", func(s) {
-    lines = lines + 1;
-    log(str(lines) + ": " + s);
-});

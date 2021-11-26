@@ -1,0 +1,20 @@
+let t = time();
+assert(type(t), "number");
+
+assert(type(1), "number");
+assert(type("1"), "string");
+assert(type(true), "bool");
+assert(type([]), "list");
+assert(type({}), "dict");
+assert(type(undefined), "undefined");
+
+let d = {"a": 1};
+delete(d, "a");
+assert(d.a, undefined);
+
+let n = 1;
+assert(str(n), "1");
+let s = "2";
+assert(num(s), 2);
+
+assert(floor(1.1), 1);

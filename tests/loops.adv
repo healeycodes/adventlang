@@ -1,0 +1,25 @@
+let count = 0;
+for (let i = 0; i < 10; i = i + 1) {
+    count = count + 1;
+}
+assert(count, 10);
+
+for (let i = 0; i < 1; i = i + 1) {
+    continue
+    // Shouldn't execute
+    assert(true, false);
+}
+assert(count, 10);
+
+for (;;) {
+    break
+    // Shouldn't execute
+    assert(true, false);
+}
+
+let ran_once = 0;
+while (true) {
+    ran_once = ran_once + 1;
+    break
+}
+assert(ran_once, 1);

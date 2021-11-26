@@ -1,4 +1,3 @@
-// a set using a closure
 let set = func(list) {
     let store = {};
     if (type(list) == "list") {
@@ -12,3 +11,10 @@ let set = func(list) {
         "has": func(x) { return store[x] == true }
     }
 };
+
+let my_set = ();
+my_set.add(1);
+assert(my_set.has(1), true);
+
+let my_other_set = ([]);
+assert(my_set.has(1), false);

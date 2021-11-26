@@ -15,10 +15,12 @@ type StackFrame struct {
 }
 
 func traceError(frame *StackFrame, position string, message string) error {
-	s := frame.trace + "\n" + frame.filename + ":" + position + ": " + message
+	s := "\n" + frame.trace + "\n" + frame.filename + ":" + position + ": " + message
 	for {
 		if parent := frame.parent; parent != nil {
 			frame = parent
+			// TODO: build a better stack trace here instead of just reporting the
+			// last two spans
 		} else {
 			break
 		}
@@ -145,11 +147,21 @@ func unref(value Value) Value {
 
 // Turn an identifier into its resolution
 func unwrap(value Value, frame *StackFrame) (Value, error) {
+	// TODO: I'm not sure if this function can ever error
+	// perhaps we can just return Value
 	if idValue, okId := value.(IdentifierValue); okId {
 		return frame.Get(idValue.val)
 	}
 	value = unref(value)
 	return value, nil
+}
+
+type ReturnError struct {
+	val Value
+}
+
+func (r ReturnError) Error() string {
+	return "return statement used outside of a function, tried to return: " + r.val.String()
 }
 
 type UndefinedValue struct{}
@@ -204,6 +216,14 @@ type StringValue struct {
 	val []byte
 }
 
+func (strValue StringValue) Get(index int) (Value, error) {
+	if index < 0 || index > len(strValue.val)-1 {
+		return nil, fmt.Errorf("string index out of bounds: %v", index)
+	}
+	var value Value = StringValue{val: []byte{strValue.val[index]}}
+	return ReferenceValue{val: &value}, nil
+}
+
 func (stringValue StringValue) String() string {
 	return string(stringValue.val)
 }
@@ -251,7 +271,7 @@ type FunctionValue struct {
 }
 
 func (functionValue FunctionValue) String() string {
-	// TODO: stringify function body
+	// TODO: stringify function body?
 	return "function (" + strings.Join(functionValue.parameters, ",") + ") "
 }
 
@@ -260,20 +280,25 @@ func (functionValue FunctionValue) Equals(other Value) (bool, error) {
 }
 
 func (functionValue FunctionValue) Exec(position string, args []Value) (Value, error) {
-	callFrame := functionValue.frame.GetChild("function called: " + position)
+	callFrame := functionValue.frame.GetChild(functionValue.frame.filename + ":" + position + ": function call")
 	if len(args) != len(functionValue.parameters) {
-		return nil, traceError(functionValue.frame, position,
+		return nil, traceError(callFrame, position,
 			fmt.Sprintf("incorrect number of arguments, wanted: %v, got: %v", len(functionValue.parameters), len(args)))
 	}
 	for i, parameter := range functionValue.parameters {
 		callFrame.Set(parameter, args[i])
 	}
 	for _, statement := range functionValue.statements {
-		if statement.Return != nil {
-			return statement.Return.Expr.Eval(callFrame)
-		}
 		_, err := statement.Eval(callFrame)
 		if err != nil {
+			// Catch the bubbling return here
+			if retErr, okRet := err.(ReturnError); okRet {
+				value, err := unwrap(retErr.val, callFrame)
+				if err != nil {
+					return nil, err
+				}
+				return value, nil
+			}
 			return nil, err
 		}
 	}
@@ -356,6 +381,10 @@ func (dictValue *DictValue) Set(key string, value Value) *Value {
 	return &value
 }
 
+func (dictValue *DictValue) Delete(key string) {
+	delete(dictValue.val, key)
+}
+
 func (dictValue DictValue) String() string {
 	s := make([]string, 0)
 	for key, value := range dictValue.val {
@@ -383,7 +412,15 @@ func (program Program) Equals(other Value) (bool, error) {
 }
 
 func (program Program) Eval(frame *StackFrame) (Value, error) {
-	return evalBlock(frame, program.Statements)
+	value, err := evalBlock(frame, program.Statements)
+	if err != nil {
+		return nil, err
+	}
+	value, err = unwrap(value, frame)
+	if err != nil {
+		return nil, err
+	}
+	return value, nil
 }
 
 func evalBlock(frame *StackFrame, statements []*Statement) (Value, error) {
@@ -418,8 +455,12 @@ func (statement Statement) Eval(frame *StackFrame) (Value, error) {
 		return statement.While.Eval(frame)
 	}
 	if statement.Return != nil {
-		return nil, traceError(frame, statement.Pos.String(),
-			"return statement used outside of a function")
+		value, err := statement.Return.Expr.Eval(frame)
+		if err != nil {
+			return nil, err
+		}
+		// Escape up to a function (or error out)
+		return nil, ReturnError{val: value}
 	}
 	if statement.Break != nil {
 		return nil, traceError(frame, statement.Pos.String(),
@@ -444,7 +485,7 @@ func (ifStatement IfStatement) Equals(other Value) (bool, error) {
 }
 
 func (ifStatement IfStatement) Eval(frame *StackFrame) (Value, error) {
-	ifFrame := frame.GetChild("if: " + ifStatement.Pos.String())
+	ifFrame := frame.GetChild(frame.filename + ":" + ifStatement.Pos.String() + ": if")
 	condition, err := ifStatement.Condition.Eval(ifFrame)
 	if err != nil {
 		return nil, err
@@ -469,10 +510,13 @@ func (forStatement ForStatement) Equals(other Value) (bool, error) {
 }
 
 func (forStatement ForStatement) Eval(frame *StackFrame) (Value, error) {
-	forFrame := frame.GetChild("for: " + forStatement.Pos.String())
-	_, err := forStatement.Init.Eval(forFrame)
-	if err != nil {
-		return nil, err
+	forFrame := frame.GetChild(frame.filename + ":" + forStatement.Pos.String() + ": for")
+	// Having no init is fine
+	if forStatement.Init != nil {
+		_, err := forStatement.Init.Eval(forFrame)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return evalLoop(forFrame, forStatement.Condition, forStatement.Block, forStatement.Post)
 }
@@ -486,7 +530,7 @@ func (whileStatement WhileStatement) Equals(other Value) (bool, error) {
 }
 
 func (whileStatement WhileStatement) Eval(frame *StackFrame) (Value, error) {
-	whileFrame := frame.GetChild("while: " + whileStatement.Pos.String())
+	whileFrame := frame.GetChild(frame.filename + ":" + whileStatement.Pos.String() + ": while")
 	return evalLoop(whileFrame, whileStatement.Condition, whileStatement.Block, nil)
 }
 
@@ -511,7 +555,7 @@ func (assignment Assignment) Equals(other Value) (bool, error) {
 }
 
 func (assignment Assignment) Eval(frame *StackFrame) (Value, error) {
-	left, err := assignment.LogicAnd.Eval(frame)
+	left, err := assignment.LogicOr.Eval(frame)
 	if err != nil {
 		return nil, err
 	}
@@ -543,13 +587,15 @@ func (assignment Assignment) Eval(frame *StackFrame) (Value, error) {
 		if assignment.Let == nil {
 			_, err = frame.Get(leftId.val)
 			if err != nil {
-				return nil, traceError(frame, assignment.LogicAnd.Pos.String(), "can't assign to unknown variable: "+left.String())
+				return nil, traceError(frame, assignment.LogicOr.Pos.String(),
+					"can't assign to unknown variable: "+left.String())
 			}
 		}
 		frame.Set(leftId.val, right)
 		return right, nil
 	}
-	return nil, traceError(frame, assignment.LogicAnd.Pos.String(), "can't assign to non-variable: "+left.String())
+	return nil, traceError(frame, assignment.LogicOr.Pos.String(),
+		"can't assign to non-variable: "+left.String())
 }
 
 func (logicAnd LogicAnd) String() string {
@@ -561,7 +607,7 @@ func (logicAnd LogicAnd) Equals(other Value) (bool, error) {
 }
 
 func (logicAnd LogicAnd) Eval(frame *StackFrame) (Value, error) {
-	left, err := logicAnd.LogicOr.Eval(frame)
+	left, err := logicAnd.Equality.Eval(frame)
 	if err != nil {
 		return nil, err
 	}
@@ -581,20 +627,14 @@ func (logicAnd LogicAnd) Eval(frame *StackFrame) (Value, error) {
 		return nil, err
 	}
 
-	if boolValue, okBool := left.(BoolValue); okBool {
-		if boolValue.val {
-			if boolValue, okBool := right.(BoolValue); okBool {
-				if boolValue.val {
-					return boolValue, nil
-				}
-			} else {
-				return nil, traceError(frame, logicAnd.Pos.String(), "only bools can be compared with 'and', found: "+right.String())
-			}
+	if leftBoolValue, okLeftBool := left.(BoolValue); okLeftBool {
+		if rightBoolValue, okRightBool := right.(BoolValue); okRightBool {
+			return BoolValue{val: leftBoolValue.val && rightBoolValue.val}, nil
 		}
-	} else {
-		return nil, traceError(frame, logicAnd.Pos.String(), "only bools can be compared with 'and', found: "+left.String())
 	}
-	panic("unreachable")
+	return nil, traceError(frame, logicAnd.Pos.String(),
+		"only bools can be compared with 'and', found: "+left.String()+" and "+right.String())
+
 }
 
 func (logicOr LogicOr) String() string {
@@ -606,7 +646,7 @@ func (logicOr LogicOr) Equals(other Value) (bool, error) {
 }
 
 func (logicOr LogicOr) Eval(frame *StackFrame) (Value, error) {
-	left, err := logicOr.Equality.Eval(frame)
+	left, err := logicOr.LogicAnd.Eval(frame)
 	if err != nil {
 		return nil, err
 	}
@@ -626,21 +666,14 @@ func (logicOr LogicOr) Eval(frame *StackFrame) (Value, error) {
 		return nil, err
 	}
 
-	if boolValue, okBool := left.(BoolValue); okBool {
-		if boolValue.val {
-			return boolValue, nil
+	if leftBoolValue, okLeftBool := left.(BoolValue); okLeftBool {
+		if rightBoolValue, okRightBool := right.(BoolValue); okRightBool {
+			return BoolValue{val: leftBoolValue.val || rightBoolValue.val}, nil
 		}
-	} else {
-		return nil, traceError(frame, logicOr.Pos.String(), "only bools can be compared with 'and', found: "+left.String())
 	}
-	if boolValue, okBool := right.(BoolValue); okBool {
-		if boolValue.val {
-			return boolValue, nil
-		}
-	} else {
-		return nil, traceError(frame, logicOr.Pos.String(), "only bools can be compared with 'and', found: "+right.String())
-	}
-	panic("unreachable")
+	return nil, traceError(frame, logicOr.Pos.String(),
+		"only bools can be compared with 'or', found: "+left.String()+" and "+right.String())
+
 }
 
 func (equality Equality) String() string {
@@ -681,8 +714,7 @@ func (equality Equality) Eval(frame *StackFrame) (Value, error) {
 		right = value
 	}
 
-	// TODO: Check for equal dicts, lists, funcs here
-
+	// Dicts, lists, functions are never equal
 	result, err := left.Equals(right)
 	if err != nil {
 		return nil, err
@@ -733,7 +765,8 @@ func (comparison Comparison) Eval(frame *StackFrame) (Value, error) {
 				*comparison.Op == ">=" && leftNum.val >= rightNum.val}, nil
 		}
 	}
-	return nil, traceError(frame, comparison.Addition.Pos.String(), "only numbers can be compared with "+*comparison.Op+" found: "+left.String()+" and "+right.String())
+	return nil, traceError(frame, comparison.Addition.Pos.String(),
+		"only numbers can be compared with "+*comparison.Op+" found: "+left.String()+" and "+right.String())
 }
 
 func (addition Addition) String() string {
@@ -829,7 +862,7 @@ func (multiplication Multiplication) Eval(frame *StackFrame) (Value, error) {
 	}
 
 	err = traceError(frame, multiplication.Unary.Pos.String(),
-		"'*' and '/' can only be used between [string, string], [number, number], [list, list], not: ["+left.String()+", "+right.String()+"]")
+		"'*', '/', and '%' can only be used between [string, string], [number, number], [list, list], not: ["+left.String()+", "+right.String()+"]")
 
 	leftNum, okLeft := left.(NumberValue)
 	if !okLeft {
@@ -846,7 +879,9 @@ func (multiplication Multiplication) Eval(frame *StackFrame) (Value, error) {
 		return NumberValue{val: leftNum.val / rightNum.val}, nil
 	}
 	if *multiplication.Op == "%" {
-		return NumberValue{val: float64(int(math.Round(leftNum.val)) % int(math.Round(rightNum.val)))}, nil
+		return NumberValue{
+			val: float64(int(math.Round(leftNum.val)) % int(math.Round(rightNum.val))),
+		}, nil
 	}
 	panic("unreachable")
 }
@@ -867,7 +902,8 @@ func (unary Unary) Eval(frame *StackFrame) (Value, error) {
 		if boolValue, ok := value.(BoolValue); ok {
 			return BoolValue{val: !boolValue.val}, nil
 		}
-		return nil, traceError(frame, unary.Unary.Pos.String(), "expected bool after '!', found"+value.String())
+		return nil, traceError(frame, unary.Unary.Pos.String(),
+			"expected bool after '!', found"+value.String())
 	}
 	if *unary.Op == "-" {
 		value, err := unary.Unary.Eval(frame)
@@ -881,7 +917,8 @@ func (unary Unary) Eval(frame *StackFrame) (Value, error) {
 		if numberValue, ok := value.(NumberValue); ok {
 			return NumberValue{val: -numberValue.val}, nil
 		}
-		return nil, traceError(frame, unary.Unary.Pos.String(), "expected bool after '-', found"+value.String())
+		return nil, traceError(frame, unary.Unary.Pos.String(),
+			"expected bool after '-', found"+value.String())
 	}
 	panic("unreachable")
 }
@@ -938,8 +975,13 @@ func (functionLiteral FuncLiteral) Equals(other Value) (bool, error) {
 }
 
 func (functionLiteral FuncLiteral) Eval(frame *StackFrame) (Value, error) {
-	closureFrame := frame.GetChild("function declared: " + functionLiteral.Pos.String())
-	functionValue := FunctionValue{position: functionLiteral.Pos.String(), parameters: functionLiteral.Params, frame: closureFrame, statements: functionLiteral.Block}
+	closureFrame := frame.GetChild(frame.filename + ":" + functionLiteral.Pos.String() + ": function declared")
+	functionValue := FunctionValue{
+		position:   functionLiteral.Pos.String(),
+		parameters: functionLiteral.Params,
+		frame:      closureFrame,
+		statements: functionLiteral.Block,
+	}
 	return functionValue, nil
 }
 
@@ -978,6 +1020,10 @@ func (dictLiteral DictLiteral) Eval(frame *StackFrame) (Value, error) {
 			var key string
 			if dictKV.KeyExpr != nil {
 				value, err := dictKV.KeyExpr.Eval(frame)
+				if err != nil {
+					return nil, err
+				}
+				value, err = unwrap(value, frame)
 				if err != nil {
 					return nil, err
 				}
@@ -1037,11 +1083,19 @@ func (subExpression SubExpression) Eval(frame *StackFrame) (Value, error) {
 }
 
 func evalLoop(loopFrame *StackFrame, conditionExpr *Expr, block []*Statement, post *Expr) (Value, error) {
+	var condition Value
+	var err error
 	for {
-		condition, err := conditionExpr.Eval(loopFrame)
-		if err != nil {
-			return nil, err
+		// Having no condition is fine, assume truthy
+		if conditionExpr != nil {
+			condition, err = conditionExpr.Eval(loopFrame)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			condition = BoolValue{val: true}
 		}
+
 		if boolValue, okBool := condition.(BoolValue); okBool {
 			if !boolValue.val {
 				return UndefinedValue{}, nil
@@ -1079,16 +1133,15 @@ func evalCallChain(frame *StackFrame, value Value, callChain *CallChain) (Value,
 	for {
 		value = unref(value)
 		if callChain.Index != nil {
+			index, err := callChain.Index.Expr.Eval(frame)
+			if err != nil {
+				return nil, err
+			}
+			index, err = unwrap(index, frame)
+			if err != nil {
+				return nil, err
+			}
 			if dictValue, okDict := value.(DictValue); okDict {
-				index, err := callChain.Index.Expr.Eval(frame)
-				if err != nil {
-					return nil, err
-				}
-				index, err = unwrap(index, frame)
-				if err != nil {
-					return nil, err
-				}
-				index = unref(index)
 				// When indexing a dict by number, we stringify it
 				if numberValue, okNumber := index.(NumberValue); okNumber {
 					index = StringValue{val: []byte(nvToS(numberValue))}
@@ -1105,19 +1158,11 @@ func evalCallChain(frame *StackFrame, value Value, callChain *CallChain) (Value,
 					if err != nil {
 						return nil, err
 					}
-					return nil, traceError(frame, callChain.Pos.String(), fmt.Sprintf("dictionaries can only be accessed by string: got '%v' of type %v", index, valueType))
+					return nil, traceError(frame, callChain.Pos.String(),
+						fmt.Sprintf("dictionaries can only be accessed by string: got '%v' of type %v", index, valueType))
 				}
 			}
 			if listValue, okList := value.(ListValue); okList {
-				index, err := callChain.Index.Expr.Eval(frame)
-				if err != nil {
-					return nil, err
-				}
-				index, err = unwrap(index, frame)
-				if err != nil {
-					return nil, err
-				}
-				index = unref(index)
 				if numberValue, okNumber := index.(NumberValue); okNumber {
 					// Note that floats are floored here
 					value, err = listValue.Get(int(numberValue.val))
@@ -1129,7 +1174,24 @@ func evalCallChain(frame *StackFrame, value Value, callChain *CallChain) (Value,
 					if err != nil {
 						return nil, err
 					}
-					return nil, traceError(frame, callChain.Pos.String(), fmt.Sprintf("lists can only be accessed by number: got '%v' of type %v", index, valueType))
+					return nil, traceError(frame, callChain.Pos.String(),
+						fmt.Sprintf("lists can only be accessed by number: got '%v' of type %v", index, valueType))
+				}
+			}
+			if strValue, okStr := value.(StringValue); okStr {
+				if numberValue, okNumber := index.(NumberValue); okNumber {
+					// Note that floats are floored here
+					value, err = strValue.Get(int(numberValue.val))
+					if err != nil {
+						return nil, traceError(frame, callChain.Index.Expr.Pos.String(), err.Error())
+					}
+				} else {
+					valueType, err := doType(frame, callChain.Index.Expr.Pos.String(), []Value{index})
+					if err != nil {
+						return nil, err
+					}
+					return nil, traceError(frame, callChain.Pos.String(),
+						fmt.Sprintf("strings can only be accessed by number: got '%v' of type %v", index, valueType))
 				}
 			}
 		} else if callChain.Property != nil {
@@ -1142,7 +1204,6 @@ func evalCallChain(frame *StackFrame, value Value, callChain *CallChain) (Value,
 				}
 			}
 			if listValue, okList := value.(ListValue); okList {
-
 				// Check that the function will be called
 				if callChain.Next != nil && callChain.Next.Args != nil {
 					// Evaluate the arguments into values
@@ -1184,7 +1245,7 @@ func evalCallChain(frame *StackFrame, value Value, callChain *CallChain) (Value,
 			if err != nil {
 				return nil, err
 			}
-			// TODO: do we need unwrap/unref here?
+			// TODO: do we need to unwrap here?
 			if function, okFunction := value.(FunctionValue); okFunction {
 				value, err = function.Exec(callChain.Pos.String(), args)
 				if err != nil {
