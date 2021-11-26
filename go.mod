@@ -1,4 +1,4 @@
-module github.com/healeycodes/sauropod
+module github.com/healeycodes/adventlang
 
 go 1.14
 

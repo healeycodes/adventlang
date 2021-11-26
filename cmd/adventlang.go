@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/healeycodes/sauropod/pkg/sauropod"
+	"github.com/healeycodes/adventlang/pkg/adventlang"
 )
 
 func main() {
@@ -15,8 +15,8 @@ func main() {
 		panic("missing file argument")
 	}
 
-	source := sauropod.ReadProgram(filename)
-	result, _, err := sauropod.RunProgram(filename, source)
+	source := adventlang.ReadProgram(filename)
+	result, _, err := adventlang.RunProgram(filename, source)
 	if err != nil {
 		println("uh oh.. while running: "+filename, err.Error(), "\n")
 		os.Exit(1)
