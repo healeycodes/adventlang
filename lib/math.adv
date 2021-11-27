@@ -1,0 +1,8 @@
+let max = func (x, y) {
+    if (x > y) {
+        return x
+    }
+    return y
+};
+assert(max(0, 1), 1);
+assert(max(1, 0), 1);

@@ -103,20 +103,6 @@ func (frame *StackFrame) Set(key string, value Value) {
 	currentFrame.entries[key] = value
 }
 
-// These errors are for escaping loop execution
-// Error() is never surfaced to users
-type BreakError struct{}
-
-func (b *BreakError) Error() string {
-	return "unreachable"
-}
-
-type ContinueError struct{}
-
-func (c *ContinueError) Error() string {
-	return "unreachable"
-}
-
 // Language value
 // ranging from strings, numbers, to functions, lists, and dicts
 type Value interface {
@@ -138,6 +124,7 @@ func (referenceValue ReferenceValue) Equals(other Value) (bool, error) {
 	return false, nil
 }
 
+// Get a reference's internal value
 func unref(value Value) Value {
 	if refValue, okRef := value.(ReferenceValue); okRef {
 		return *refValue.val
@@ -485,7 +472,7 @@ func (ifStatement IfStatement) Equals(other Value) (bool, error) {
 }
 
 func (ifStatement IfStatement) Eval(frame *StackFrame) (Value, error) {
-	ifFrame := frame.GetChild(frame.filename + ":" + ifStatement.Pos.String() + ": if")
+	ifFrame := frame.GetChild(frame.filename + ":" + ifStatement.Pos.String() + ": if statement")
 	condition, err := ifStatement.Condition.Eval(ifFrame)
 	if err != nil {
 		return nil, err
@@ -510,7 +497,7 @@ func (forStatement ForStatement) Equals(other Value) (bool, error) {
 }
 
 func (forStatement ForStatement) Eval(frame *StackFrame) (Value, error) {
-	forFrame := frame.GetChild(frame.filename + ":" + forStatement.Pos.String() + ": for")
+	forFrame := frame.GetChild(frame.filename + ":" + forStatement.Pos.String() + ": for loop")
 	// Having no init is fine
 	if forStatement.Init != nil {
 		_, err := forStatement.Init.Eval(forFrame)
@@ -530,7 +517,7 @@ func (whileStatement WhileStatement) Equals(other Value) (bool, error) {
 }
 
 func (whileStatement WhileStatement) Eval(frame *StackFrame) (Value, error) {
-	whileFrame := frame.GetChild(frame.filename + ":" + whileStatement.Pos.String() + ": while")
+	whileFrame := frame.GetChild(frame.filename + ":" + whileStatement.Pos.String() + ": while loop")
 	return evalLoop(whileFrame, whileStatement.Condition, whileStatement.Block, nil)
 }
 
@@ -803,7 +790,7 @@ func (addition Addition) Eval(frame *StackFrame) (Value, error) {
 	}
 
 	err = traceError(frame, addition.Multiplication.Pos.String(),
-		"'+' can only be used between [string, string], [number, number], [list, list], not: ["+left.String()+", "+right.String()+"]")
+		"'+' can only be used between [string, string], [number, number], not: ["+left.String()+", "+right.String()+"]")
 
 	leftStr, okLeft := left.(StringValue)
 	rightStr, okRight := right.(StringValue)
@@ -862,7 +849,7 @@ func (multiplication Multiplication) Eval(frame *StackFrame) (Value, error) {
 	}
 
 	err = traceError(frame, multiplication.Unary.Pos.String(),
-		"'*', '/', and '%' can only be used between [string, string], [number, number], [list, list], not: ["+left.String()+", "+right.String()+"]")
+		"'*', '/', and '%' can only be used between [string, string], [number, number], not: ["+left.String()+", "+right.String()+"]")
 
 	leftNum, okLeft := left.(NumberValue)
 	if !okLeft {

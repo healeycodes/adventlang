@@ -2,6 +2,7 @@ let t = time();
 
 // Import tests files here
 // we'll exit status 1 on any failures
+import("lib/math.adv");
 import("tests/advent_2019_1.adv");
 import("tests/logic.adv");
 import("tests/runtime.adv");
