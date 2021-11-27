@@ -8,15 +8,13 @@ log("Hello, World!");
 
 ### Why
 
-In the second half of November, I designed and implemented a programming language for Advent of Code (AoC). I'll be using it to solve AoC's daily puzzles and adding to the standard library as I go. Will this language make it easier for you to solve the puzzles? No, certainly not. Here be dragons, etc. But it will increase my level of fun as I tap into the joyous energy that comes with forced-creativity-through-restriction.
+In the second half of November, I designed and implemented this programming language for Advent of Code (AoC). I'll be using it to solve AoC's daily puzzles and adding to the standard library as I go. Will this language make it easier for you to solve the puzzles? No, certainly not. Here be dragons, etc. But it will increase my level of fun as I tap into the joyous energy that comes with forced-creativity-through-restriction.
 
 ### Getting Started
 
 Look in the [tests](/tests) folder for examples of how to use most language features.
 
-If you're developing, you can use `go run` and pass a file as an argument.
-
-In the root project directory:
+If you're developing, you can use `go run` and pass a file as an argument. In the root project directory:
 
 ```bash
 go run cmd/adventlang.go tests/__run_tests.adv
