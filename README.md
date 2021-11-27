@@ -1,3 +1,5 @@
+[![CI Tests](https://github.com/healeycodes/adventlang/actions/workflows/ci-tests.yml/badge.svg)](https://github.com/healeycodes/adventlang/actions/workflows/ci-tests.yml)
+
 # 🎅 Adventlang
 
 A strongly typed but highly dynamic programming language interpreter written in Go.
