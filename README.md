@@ -20,13 +20,6 @@ If you're developing, you can use `go run` and pass a file as an argument. In th
 go run cmd/adventlang.go tests/__run_tests.adv
 ```
 
-To build the interpreter, and then run tests:
-
-```bash
-go build -o adventlang cmd/advent-lang.go
-adventlang tests/__run_tests.adv
-```
-
 ### An Example Program
 
 ```js
