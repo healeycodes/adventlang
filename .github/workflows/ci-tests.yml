@@ -17,11 +17,6 @@ jobs:
         with:
           go-version: 1.17
 
-      - name: Run Tests
-        run: |
-          GOOS=linux GOARCH=amd64 go build -o adventlang-linux cmd/advent-lang.go
-          ./adventlang-linux tests/__run_tests.adv
-
       - name: DX
         run: |
           go run cmd/adventlang.go tests/__run_tests.adv
