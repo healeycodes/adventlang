@@ -1,4 +1,4 @@
-# Adventlang
+# 🎅 Adventlang
 
 A strongly typed but highly dynamic programming language interpreter written in Go.
 
