@@ -2,6 +2,10 @@
 
 # 🎅 Adventlang
 
+> My blog post: [Designing a Programming Language for Advent of Code](https://healeycodes.com/designing-a-programming-language-for-advent-of-code)
+
+<br>
+
 A strongly typed but highly dynamic programming language interpreter written in Go.
 
 ```js
