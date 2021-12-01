@@ -1,5 +1,5 @@
 let utils = import("lib/utils.adv");
-let puzzle = utils.get_puzzle("solutions/2021/data/01.txt");
+let puzzle = utils.get_puzzle("solutions/2021/data/test.txt");
 
 // Part one
 let num_increases = 0;
