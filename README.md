@@ -74,6 +74,17 @@ Build for common platforms:
 ./run_tests.sh
 ```
 
+### Experimental features
+
+Run Adventlang programs via WebAssembly.
+
+```bash
+./build_wasm.sh
+python website/dev.py
+```
+
+Navigate to `http://localhost:8000`.
+
 ### License
 
 MIT.

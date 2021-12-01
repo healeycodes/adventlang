@@ -1,0 +1,30 @@
+<html>
+
+<head>
+    <title>Adventlang Playground</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
+</head>
+
+<body>
+    <script src="wasm_exec.js"></script>
+    <script>
+        (async () => {
+            if (!WebAssembly.instantiateStreaming) { // polyfill
+                WebAssembly.instantiateStreaming = async (resp, importObject) => {
+                    const source = await (await resp).arrayBuffer();
+                    return await WebAssembly.instantiate(source, importObject);
+                };
+            }
+
+            const go = new Go();
+            const data = await fetch("adventlang.wasm");
+            const result = await WebAssembly.instantiateStreaming(data, go.importObject);
+            go.run(result.instance);
+        })()
+    </script>
+    <h1>Adventlang Playground</h1>
+    <p>Use the global <code>adventlang</code> to run Adventlang programs via developer console.</p>
+    <p>e.g. <code>adventlang('log("Hello, World!");')</code></p>
+</body>
+
+</html>

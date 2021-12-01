@@ -20,3 +20,7 @@ jobs:
       - name: DX
         run: |
           go run cmd/adventlang.go tests/__run_tests.adv
+
+      - name: Wasm
+        run: |
+          GOOS=js GOARCH=wasm go build -o website/adventlang.wasm web/run.go
