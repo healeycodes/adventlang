@@ -11,5 +11,5 @@ Handler.extensions_map.update(
 socketserver.TCPServer.allow_reuse_address = True
 with socketserver.TCPServer(("", PORT), Handler) as httpd:
     httpd.allow_reuse_address = True
-    print("serving at port", PORT)
+    print(f"🎅 http://localhost:{PORT}")
     httpd.serve_forever()
