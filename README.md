@@ -79,7 +79,7 @@ Build for common platforms:
 Run Adventlang programs via WebAssembly.
 
 ```bash
-./build_wasm
+./build_wasm.sh
 python website/dev.py
 ```
 
