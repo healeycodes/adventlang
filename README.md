@@ -78,12 +78,16 @@ Build for common platforms:
 
 Run Adventlang programs via WebAssembly.
 
+Try it on https://healeycodes.github.io/adventlang/
+
+On local, you can:
+
 ```bash
 ./build_wasm.sh
 python website/dev.py
 ```
 
-Navigate to `http://localhost:8000`.
+And then Navigate to `http://localhost:8000`
 
 ### License
 
