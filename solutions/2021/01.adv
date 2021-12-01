@@ -24,4 +24,4 @@ for (let i = 0; i < len(sliding_windows) - 1; i = i + 1) {
         sliding_windows_increases = sliding_windows_increases + 1;
     }
 }
-assert(num_increases, 1543);
+assert(sliding_windows_increases, 1543);
