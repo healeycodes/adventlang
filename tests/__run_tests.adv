@@ -15,4 +15,7 @@ import("tests/numbers.adv");
 import("tests/strings.adv");
 import("tests/io.adv");
 
+// Test 2021 puzzles
+import("solutions/2021/01.adv");
+
 "all tests passed in " + str(time() - t) + "ms";

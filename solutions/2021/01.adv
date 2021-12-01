@@ -1,0 +1,11 @@
+let utils = import("lib/utils.adv");
+let puzzle = utils.get_puzzle("solutions/2021/data/01.txt");
+
+// Part one
+let num_increases = 0;
+for (let i = 0; i < len(puzzle) - 1; i = i + 1) {
+    if (puzzle[i] < puzzle[i + 1]) {
+        num_increases = num_increases + 1;
+    }
+}
+assert(num_increases, 7);
