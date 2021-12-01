@@ -1,0 +1,27 @@
+let utils = import("lib/utils.adv");
+let puzzle = utils.get_puzzle("solutions/2021/data/01.txt");
+
+// Part one
+let num_increases = 0;
+for (let i = 0; i < len(puzzle) - 1; i = i + 1) {
+    if (puzzle[i] < puzzle[i + 1]) {
+        num_increases = num_increases + 1;
+    }
+}
+assert(num_increases, 1521);
+
+// Part two
+let sliding_windows = [];
+for (let i = 0; i < len(puzzle) - 2; i = i + 1) {
+    sliding_windows.append(
+        puzzle[i] + puzzle[i + 1] + puzzle[i + 2]
+    );
+}
+
+let sliding_windows_increases = 0;
+for (let i = 0; i < len(sliding_windows) - 1; i = i + 1) {
+    if (sliding_windows[i] < sliding_windows[i + 1]) {
+        sliding_windows_increases = sliding_windows_increases + 1;
+    }
+}
+assert(sliding_windows_increases, 1543);

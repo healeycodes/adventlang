@@ -12,7 +12,8 @@ func main() {
 	flag.Parse()
 	filename := flag.Arg(0)
 	if filename == "" {
-		panic("missing file argument")
+		println("missing file argument")
+		os.Exit(1)
 	}
 
 	source := adventlang.ReadProgram(filename)
