@@ -23,4 +23,4 @@ jobs:
 
       - name: Wasm
         run: |
-          GOOS=js GOARCH=wasm go build -o website/adventlang.wasm web/run.go
+          GOOS=js GOARCH=wasm go build -o docs/adventlang.wasm web/run.go
