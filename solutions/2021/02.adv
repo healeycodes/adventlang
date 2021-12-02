@@ -1,0 +1,42 @@
+let puzzle = import("lib/utils.adv").get_puzzle_str("solutions/2021/data/02.txt");
+let str = import("lib/str.adv");
+
+// Part one
+let horizontal = 0;
+let depth = 0;
+for (let i = 0; i < len(puzzle); i = i + 1) {
+    let dir = str.split(puzzle[i], " ")[0];
+    let amount = num(str.split(puzzle[i], " ")[1]);
+    if (dir == "forward") {
+        horizontal = horizontal + amount;
+    }
+    if (dir == "down") {
+        depth = depth + amount;
+    }
+    if (dir == "up") {
+        depth = depth - amount;
+    }
+}
+let position = horizontal * depth;
+assert(position, 1250395);
+
+// Part two
+let horizontal = 0;
+let depth = 0;
+let aim = 0;
+for (let i = 0; i < len(puzzle); i = i + 1) {
+    let dir = str.split(puzzle[i], " ")[0];
+    let amount = num(str.split(puzzle[i], " ")[1]);
+    if (dir == "forward") {
+        horizontal = horizontal + amount;
+        depth = depth + (aim * amount);
+    }
+    if (dir == "down") {
+        aim = aim + amount;
+    }
+    if (dir == "up") {
+        aim = aim - amount;
+    }
+}
+let position_with_aim = horizontal * depth;
+assert(position_with_aim, 1451210346);

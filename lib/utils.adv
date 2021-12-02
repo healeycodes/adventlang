@@ -1,7 +1,15 @@
-let get_puzzle = func(path) {
+let get_puzzle_num = func(path) {
     let puzzle = [];
     read_lines(path, func(s) {
         puzzle.append(num(s));
+    });
+    return puzzle
+};
+
+let get_puzzle_str = func(path) {
+    let puzzle = [];
+    read_lines(path, func(s) {
+        puzzle.append(s);
     });
     return puzzle
 };
