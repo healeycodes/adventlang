@@ -1,0 +1,23 @@
+let split = func(s, by) {
+    let temp = "";
+    let ret = [];
+    let i = 0;
+    while (i < len(s)) {
+        if (s[i] == by) {
+            if (temp != "") {
+                ret.append(temp);
+            }
+            temp = "";
+        } else {
+            temp = temp + s[i];
+        }
+        i = i + 1;
+    }
+    if (temp != "") {
+        ret.append(temp);
+    }
+    return ret;
+};
+assert(len(split("a,b", ",")), 2);
+assert(split("a,b", ",")[0], "a");
+assert(split("a,b", ",")[1], "b");

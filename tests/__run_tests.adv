@@ -2,6 +2,7 @@ let t = time();
 
 // Import tests files here
 // we'll exit status 1 on any failures
+import("lib/str.adv");
 import("lib/math.adv");
 import("tests/advent_2019_1.adv");
 import("tests/logic.adv");
@@ -17,5 +18,6 @@ import("tests/io.adv");
 
 // Test 2021 puzzles
 import("solutions/2021/01.adv");
+import("solutions/2021/02.adv");
 
 "all tests passed in " + str(time() - t) + "ms";
