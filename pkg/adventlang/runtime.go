@@ -23,6 +23,7 @@ func InjectRuntime(context *Context) {
 	setNativeFunc("append", NativeFunctionValue{name: "append", Exec: doAppend}, &context.stackFrame)
 	setNativeFunc("prepend", NativeFunctionValue{name: "prepend", Exec: doPrepend}, &context.stackFrame)
 	setNativeFunc("pop", NativeFunctionValue{name: "pop", Exec: doPop}, &context.stackFrame)
+	setNativeFunc("popat", NativeFunctionValue{name: "popat", Exec: doPopat}, &context.stackFrame)
 	setNativeFunc("prepop", NativeFunctionValue{name: "prepop", Exec: doPrepop}, &context.stackFrame)
 	setNativeFunc("assert", NativeFunctionValue{name: "assert", Exec: doAssert}, &context.stackFrame)
 	setNativeFunc("log", NativeFunctionValue{name: "log", Exec: doLog}, &context.stackFrame)
@@ -227,7 +228,7 @@ func doPop(frame *StackFrame, position string, args []Value) (Value, error) {
 		if len(listValue.val) == 0 {
 			return nil, traceError(frame, position, "pop: called on an empty list")
 		}
-		return listValue.Pop(), nil
+		return listValue.Popat(len(listValue.val) - 1)
 	}
 	firstType, err := doType(frame, position, []Value{args[0]})
 	if err != nil {
@@ -235,6 +236,34 @@ func doPop(frame *StackFrame, position string, args []Value) (Value, error) {
 	}
 	return nil, traceError(frame, position,
 		"pop: the single argument should be a list, got: "+firstType.String())
+}
+
+func doPopat(frame *StackFrame, position string, args []Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, traceError(frame, position,
+			fmt.Sprintf("popat: incorrect number of arguments, wanted: 2, got: %v ", len(args)))
+	}
+	if listValue, listOk := args[0].(ListValue); listOk {
+		if len(listValue.val) == 0 {
+			return nil, traceError(frame, position, "popat: called on an empty list")
+		}
+		if numValue, numOk := args[1].(NumberValue); numOk {
+			// Floor the index
+			return listValue.Popat(int(numValue.val))
+		}
+		secondType, err := doType(frame, position, []Value{args[0]})
+		if err != nil {
+			return nil, err
+		}
+		return nil, traceError(frame, position,
+			"popat: the 2nd argument should be a number, got: "+secondType.String())
+	}
+	firstType, err := doType(frame, position, []Value{args[0]})
+	if err != nil {
+		return nil, err
+	}
+	return nil, traceError(frame, position,
+		"popat: the 1st argument should be a list, got: "+firstType.String())
 }
 
 func doPrepop(frame *StackFrame, position string, args []Value) (Value, error) {
@@ -246,7 +275,7 @@ func doPrepop(frame *StackFrame, position string, args []Value) (Value, error) {
 		if len(listValue.val) == 0 {
 			return nil, traceError(frame, position, "prepop: called on an empty list")
 		}
-		return listValue.PopLeft(), nil
+		return listValue.Popat(0)
 	}
 	firstType, err := doType(frame, position, []Value{args[0]})
 	if err != nil {

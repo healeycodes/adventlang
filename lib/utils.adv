@@ -13,3 +13,18 @@ let get_puzzle_str = func(path) {
     });
     return puzzle
 };
+
+let copy_list = func(l) {
+    let ret = [];
+    for (let i = 0; i < len(l); i = i + 1) {
+        ret.append(l[i]);
+    }
+    return ret;
+};
+(func() {
+    let l1 = [0];
+    let l2 = copy_list(l1);
+    l2.pop();
+    assert(len(l2), 0);
+    assert(len(l1), 1);
+})();

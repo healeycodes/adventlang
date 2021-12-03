@@ -3,18 +3,28 @@ assert(nums[0], 0);
 
 assert(len(nums), 3);
 
-nums.append(3); // 0, 1, 2, 3
+nums.append(3); // 0, 1, 2, [3]
 assert(nums[3], 3);
 assert(len(nums), 4);
 
-nums.prepend(-1); // -1, 0, 1, 2, 3
+nums.prepend(-1); // [-1], 0, 1, 2, 3
 assert(nums[0], -1);
 assert(len(nums), 5);
 
-let popped = nums.pop(); // -1, 0, 1, 2
+let popped = nums.pop(); // -1, 0, 1, 2, [3]
 assert(popped, 3);
 assert(len(nums), 4);
 
-let prepopped = nums.prepop(); // 0, 1, 2
+let prepopped = nums.prepop(); // [-1], 0, 1, 2
 assert(prepopped, -1);
 assert(len(nums), 3);
+
+let pop_by_index = nums.popat(1); // 0, [1], 2
+assert(pop_by_index, 1);
+assert(nums[0], 0);
+assert(nums[1], 2);
+assert(len(nums), 2);
+
+assert(nums.popat(0), 0); // [0], 2
+assert(nums[0], 2);
+assert(len(nums), 1);
