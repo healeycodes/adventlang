@@ -151,6 +151,24 @@ func (r ReturnError) Error() string {
 	return "return statement used outside of a function, tried to return: " + r.val.String()
 }
 
+type BreakError struct {
+	// TODO: Use this in traces
+	position string
+}
+
+func (b BreakError) Error() string {
+	return "break statement used outside of a loop"
+}
+
+type ContinueError struct {
+	// TODO: Use this in traces
+	position string
+}
+
+func (c ContinueError) Error() string {
+	return "continue statement used outside of a loop"
+}
+
 type UndefinedValue struct{}
 
 func (undefinedValue UndefinedValue) String() string {
@@ -333,22 +351,20 @@ func (listValue ListValue) Prepend(other Value) {
 	listValue.val[0] = &other
 }
 
-func (listValue ListValue) Pop() Value {
-	last := *listValue.val[len(listValue.val)-1]
-	delete(listValue.val, len(listValue.val)-1)
-	return last
-}
-
-func (listValue ListValue) PopLeft() Value {
-	// Remove and return the zeroth item.
+func (listValue ListValue) Popat(index int) (Value, error) {
+	// Remove and return an item at `index`.
 	// Correcting the remaining indexes costs O(N)
-	first := *listValue.val[0]
-	delete(listValue.val, 0)
-	for i := 0; i < len(listValue.val); i++ {
-		listValue.val[i] = listValue.val[i+1]
+	if index < 0 || index > len(listValue.val)-1 {
+		return nil, fmt.Errorf("list index out of bounds: %v", index)
 	}
-	delete(listValue.val, len(listValue.val)-1)
-	return first
+	item := *listValue.val[index]
+	for i := index + 1; i < len(listValue.val); i++ { // b.
+		// Overwrite an item by shifting down
+		listValue.val[i-1] = listValue.val[i]
+	}
+	// Delete the last duplicate item
+	delete(listValue.val, len(listValue.val)-1) // _______ c.
+	return item, nil
 }
 
 type DictValue struct {
@@ -450,12 +466,12 @@ func (statement Statement) Eval(frame *StackFrame) (Value, error) {
 		return nil, ReturnError{val: value}
 	}
 	if statement.Break != nil {
-		return nil, traceError(frame, statement.Pos.String(),
-			"break statement used outside of a loop")
+		// Escape up to a loop (or error out)
+		return nil, BreakError{position: statement.Pos.String()}
 	}
 	if statement.Continue != nil {
-		return nil, traceError(frame, statement.Pos.String(),
-			"continue statement used outside of a loop")
+		// Escape up to a loop (or error out)
+		return nil, ContinueError{position: statement.Pos.String()}
 	}
 	if statement.Expr != nil {
 		return statement.Expr.Eval(frame)
@@ -1088,15 +1104,15 @@ func evalLoop(loopFrame *StackFrame, conditionExpr *Expr, block []*Statement, po
 				return UndefinedValue{}, nil
 			}
 			for _, statement := range block {
-				if statement.Break != nil {
-					return UndefinedValue{}, nil
-				} else if statement.Continue != nil {
-					break
-				} else {
-					_, err = statement.Eval(loopFrame)
-					if err != nil {
-						return nil, err
+				_, err = statement.Eval(loopFrame)
+				if err != nil {
+					if _, okCont := err.(ContinueError); okCont {
+						break
 					}
+					if _, okCont := err.(BreakError); okCont {
+						return UndefinedValue{}, nil
+					}
+					return nil, err
 				}
 			}
 			if post != nil {
@@ -1211,6 +1227,8 @@ func evalCallChain(frame *StackFrame, value Value, callChain *CallChain) (Value,
 						value, err = doPrepend(frame, callChain.Pos.String(), args)
 					} else if *callChain.Property.Ident == "prepop" {
 						value, err = doPrepop(frame, callChain.Pos.String(), args)
+					} else if *callChain.Property.Ident == "popat" {
+						value, err = doPopat(frame, callChain.Pos.String(), args)
 					} else {
 						return nil, traceError(frame, callChain.Next.Pos.String(),
 							"unknown list function: "+*callChain.Property.Ident)

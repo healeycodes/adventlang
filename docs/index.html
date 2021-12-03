@@ -15,7 +15,6 @@
                     return await WebAssembly.instantiate(source, importObject);
                 };
             }
-
             const go = new Go();
             const data = await fetch("adventlang.wasm");
             const result = await WebAssembly.instantiateStreaming(data, go.importObject);

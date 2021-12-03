@@ -84,7 +84,7 @@ On local, you can:
 
 ```bash
 ./build_wasm.sh
-python website/dev.py
+python docs/dev.py
 ```
 
 And then Navigate to `http://localhost:8000`

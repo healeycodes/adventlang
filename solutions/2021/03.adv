@@ -1,0 +1,32 @@
+let utils = import("lib/utils.adv");
+let puzzle = utils.get_puzzle_str("solutions/2021/data/03.txt");
+let math = import("lib/math.adv");
+
+// Part one
+let most_common = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+for (let i = 0; i < len(puzzle); i = i + 1) {
+    for (let j = 0; j < 12; j = j + 1) {
+        if (puzzle[i][j] == "0") {
+            most_common[j] = most_common[j] - 1;
+        } else {
+            most_common[j] = most_common[j] + 1;
+        }
+    }
+}
+
+let gamma = "";
+let epsilon = "";
+for (let i = 0; i < len(most_common); i = i + 1) {
+    if (most_common[i] > 0) {
+        gamma = gamma + "1";
+        epsilon = epsilon + "0";
+    } else {
+        gamma = gamma + "0";
+        epsilon = epsilon + "1";
+    }
+}
+log(math.binary_to_decimal(num(gamma)));
+log(math.binary_to_decimal(num(epsilon)));
+let power_consumption = 
+    math.binary_to_decimal(num(gamma)) * math.binary_to_decimal(num(epsilon));
+assert(power_consumption, 3959450);

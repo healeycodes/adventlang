@@ -6,3 +6,18 @@ let max = func (x, y) {
 };
 assert(max(0, 1), 1);
 assert(max(1, 0), 1);
+
+let binary_to_decimal = func(b) {
+    let dec_value = 0;
+    let base = 1;
+     
+    while(b > 0) {
+        let last_digit = b % 10;
+        b = floor(b / 10);
+        dec_value = dec_value + last_digit * base;
+        base = base * 2;
+    }
+    return dec_value;
+};
+assert(binary_to_decimal(0), 0);
+assert(binary_to_decimal(10101001), 169);
