@@ -458,11 +458,14 @@ func (statement Statement) Eval(frame *StackFrame) (Value, error) {
 		return statement.While.Eval(frame)
 	}
 	if statement.Return != nil {
+		// In this if block, we can escape to the nearest func
+		if statement.Return.Expr == nil {
+			return nil, ReturnError{val: UndefinedValue{}}
+		}
 		value, err := statement.Return.Expr.Eval(frame)
 		if err != nil {
 			return nil, err
 		}
-		// Escape up to a function (or error out)
 		return nil, ReturnError{val: value}
 	}
 	if statement.Break != nil {

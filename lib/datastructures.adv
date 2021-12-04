@@ -1,0 +1,35 @@
+let str_set = func(list) {
+    let store = {};
+    if (type(list) == "list") {
+        for (let i = 0; i < len(list); i = i + 1) {
+            let key = list[i];
+            store[key] = true;
+        }
+    }
+    return {
+        "add": func(x) { store[x] = true; },
+        "has": func(x) { return store[x] == true },
+        "items": func() {
+            let ret = [];
+            let _keys = keys(store);
+            for (let i = 0; i < len(_keys); i = i + 1) {
+                if (store[_keys[i]] == true) {
+                    ret.append(_keys[i]);
+                }
+            }
+            return ret;
+        }
+    }
+};
+(func() {
+    let my_set = str_set([]);
+    my_set.add("a");
+    assert(my_set.has("a"), true);
+    assert(my_set.has("b"), false);
+    assert(len(my_set.items()), 1);
+    assert(my_set.items()[0], "a");
+
+    // Stringify 1 -> "1"
+    my_set.add(1);
+    assert(my_set.has("1"), true);
+})();
