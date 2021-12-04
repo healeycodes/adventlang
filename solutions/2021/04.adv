@@ -58,6 +58,7 @@ let get_board_score = func(board, nums_so_far) {
     return sum_of_unmarked
 };
 
+// Part one
 let nums_so_far = ds.str_set([]);
 (func () {
     for (let i = 0; i < len(numbers); i = i + 1) {
@@ -71,6 +72,7 @@ let nums_so_far = ds.str_set([]);
     }
 })();
 
+// Part two
 let nums_so_far2 = ds.str_set([]);
 let boards_won = ds.str_set([]);
 let score_order = [];
