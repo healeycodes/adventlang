@@ -5,7 +5,7 @@ let math = import("lib/math.adv");
 // Part one
 let most_common = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 for (let i = 0; i < len(puzzle); i = i + 1) {
-    for (let j = 0; j < 12; j = j + 1) {
+    for (let j = 0; j < len(most_common); j = j + 1) {
         if (puzzle[i][j] == "0") {
             most_common[j] = most_common[j] - 1;
         } else {
@@ -25,8 +25,59 @@ for (let i = 0; i < len(most_common); i = i + 1) {
         epsilon = epsilon + "1";
     }
 }
-log(math.binary_to_decimal(num(gamma)));
-log(math.binary_to_decimal(num(epsilon)));
 let power_consumption = 
     math.binary_to_decimal(num(gamma)) * math.binary_to_decimal(num(epsilon));
 assert(power_consumption, 3959450);
+
+let oxygen = utils.copy_list(puzzle);
+for (let i = 0; i < len(most_common); i = i + 1) {
+    let common = 0;
+    for (let j = 0; j < len(oxygen); j = j + 1) {
+        if (oxygen[j][i] == "1") {
+            common = common + 1;
+        } else {
+            common = common - 1;
+        }
+    }
+    let common_digit = "1";
+    if (common < 0) {
+        common_digit = "0";
+    }
+    for (let j = 0; j < len(oxygen); j = j + 1) {
+        if (len(oxygen) == 1) {
+            break
+        }
+        if (oxygen[j][i] != common_digit) {
+            oxygen.popat(j);
+            j = j - 1;
+        }
+    }    
+}
+
+let co2 = utils.copy_list(puzzle);
+for (let i = 0; i < len(most_common); i = i + 1) {
+    let common = 0;
+    for (let j = 0; j < len(co2); j = j + 1) {
+        if (co2[j][i] == "1") {
+            common = common + 1;
+        } else {
+            common = common - 1;
+        }
+    }
+    let common_digit = "0";
+    if (common < 0) {
+        common_digit = "1";
+    }
+    for (let j = 0; j < len(co2); j = j + 1) {
+        if (len(co2) == 1) {
+            break
+        }
+        if (co2[j][i] != common_digit) {
+            co2.popat(j);
+            j = j - 1;
+        }
+    }    
+}
+let life_support = 
+    math.binary_to_decimal(num(oxygen[0])) * math.binary_to_decimal(num(co2[0]));
+assert(life_support, 7440311);
