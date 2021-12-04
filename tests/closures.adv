@@ -1,7 +1,7 @@
 let set = func(list) {
     let store = {};
     if (type(list) == "list") {
-        for (let i = 0; i < 3; i = i + 1) {
+        for (let i = 0; i < len(list); i = i + 1) {
             let key = list[i];
             store[key] = true;
         }
@@ -12,9 +12,9 @@ let set = func(list) {
     }
 };
 
-let my_set = ();
+let my_set = set([]);
 my_set.add(1);
 assert(my_set.has(1), true);
 
 let my_other_set = ([]);
-assert(my_set.has(1), false);
+assert(my_set.has(2), false);

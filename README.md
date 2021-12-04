@@ -37,11 +37,11 @@ if (true) {}
 let result = (func(x) { return x + 1 })(4);
 
 // Implemention of a Set using a closure over a dictionary
-// `let my_set = set();` or `let items = set([1, 2])`
+// `let my_set = set([]);` or `let items = set([1, 2])`
 let set = func(list) {
     let store = {};
     if (type(list) == "list") {
-        for (let i = 0; i < 3; i = i + 1) {
+        for (let i = 0; i < len(list); i = i + 1) {
             let key = list[i];
             store[key] = true;
         }

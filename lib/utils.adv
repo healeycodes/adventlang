@@ -28,3 +28,38 @@ let copy_list = func(l) {
     assert(len(l2), 0);
     assert(len(l1), 1);
 })();
+
+let map = func(l, f) {
+    let ret = [];
+    for (let i = 0; i < len(l); i = i + 1) {
+        ret.append(
+            f(l[i])
+        );
+    }
+    return ret;
+};
+(func() {
+    let l1 = [0, 2, 4];
+    let squared = map(l1, func(n) { return n * n });
+    assert(len(squared), 3);
+    assert(squared[0], 0);
+    assert(squared[1], 4);
+    assert(squared[2], 16);
+})();
+
+let concat = func(l1, l2) {
+    for (let i = 0; i < len(l2); i = i + 1) {
+        l1.append(l2[i]);
+    }
+    return l1
+};
+(func() {
+    let l1 = [0];
+    let l2 = [1];
+    concat(l1, l2);
+    assert(len(l1), 2);
+    assert(l1[0], 0);
+    assert(l1[1], 1);
+    // Shouldn't error
+    concat(l1, []);
+})();
