@@ -7,6 +7,15 @@ let max = func (x, y) {
 assert(max(0, 1), 1);
 assert(max(1, 0), 1);
 
+let min = func (x, y) {
+    if (x < y) {
+        return x
+    }
+    return y
+};
+assert(min(0, 1), 0);
+assert(min(1, 0), 0);
+
 let binary_to_decimal = func(b) {
     let dec_value = 0;
     let base = 1;

@@ -1,12 +1,12 @@
 let puzzle = import("lib/utils.adv").get_puzzle_str("solutions/2021/data/02.txt");
-let str = import("lib/str.adv");
+let string = import("lib/string.adv");
 
 // Part one
 let horizontal = 0;
 let depth = 0;
 for (let i = 0; i < len(puzzle); i = i + 1) {
-    let dir = str.split(puzzle[i], " ")[0];
-    let amount = num(str.split(puzzle[i], " ")[1]);
+    let dir = string.split(puzzle[i], " ")[0];
+    let amount = num(string.split(puzzle[i], " ")[1]);
     if (dir == "forward") {
         horizontal = horizontal + amount;
     }
@@ -25,8 +25,8 @@ let horizontal = 0;
 let depth = 0;
 let aim = 0;
 for (let i = 0; i < len(puzzle); i = i + 1) {
-    let dir = str.split(puzzle[i], " ")[0];
-    let amount = num(str.split(puzzle[i], " ")[1]);
+    let dir = string.split(puzzle[i], " ")[0];
+    let amount = num(string.split(puzzle[i], " ")[1]);
     if (dir == "forward") {
         horizontal = horizontal + amount;
         depth = depth + (aim * amount);

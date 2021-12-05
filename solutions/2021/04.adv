@@ -1,18 +1,18 @@
-let ds = import("lib/datastructures.adv");
+let ds = import("lib/datastructs.adv");
 let utils = import("lib/utils.adv");
-let str = import("lib/str.adv");
+let string = import("lib/string.adv");
 
 let lines = [];
 read_lines("solutions/2021/data/04.txt", func(s) {
     lines.append(s);
 });
-let numbers = str.split(lines[0], ",");
+let numbers = string.split(lines[0], ",");
 numbers = utils.map(numbers, func(n) { return num(n) });
 
 let boards = [];
 let board = [];
 for (let i = 2; i < len(lines); i = i + 1) {
-    let row = str.split(lines[i], " ");
+    let row = string.split(lines[i], " ");
     if (len(row) == 0) {
         boards.append(board);
         board = [];

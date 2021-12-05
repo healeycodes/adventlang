@@ -1,0 +1,121 @@
+let ds = import("lib/datastructs.adv");
+let utils = import("lib/utils.adv");
+let string = import("lib/string.adv");
+let math = import("lib/math.adv");
+
+let paths = [];
+read_lines("solutions/2021/data/05.txt", func(s) {
+    let numify = func (n) { return num(n) };
+    let points = string.split(s, " ");
+    paths.append(
+        [
+            // from
+            utils.map(
+                string.split(points[0], ","),
+                numify
+            ),
+            // to
+            utils.map(
+                string.split(points[2], ","),
+                numify
+            )
+        ]
+    );
+});
+
+let vents = {};
+let add_point = func(point) {
+    if (vents[point] == undefined) {
+        vents[point] = 1;
+    } else {
+        vents[point] = vents[point] + 1;
+    }
+};
+
+for (let i = 0; i < len(paths); i = i + 1) {
+    let from = paths[i][0]; // x1, y1
+    let to = paths[i][1]; // x2, y2
+
+    // Vertical line
+    if (from[0] == to[0]) {
+        let a = math.min(from[1], to[1]);
+        let b = math.max(from[1], to[1]);
+        for (let j = a; j <= b; j = j + 1) {
+            add_point(str(from[0]) + "," + str(j));
+        }
+    } 
+
+    // Horizontal line    
+    if (from[1] == to[1]) {
+        let a = math.min(from[0], to[0]);
+        let b = math.max(from[0], to[0]);
+        for (let j = a; j <= b; j = j + 1) {
+            add_point(str(j) + "," + str(from[1]));
+        }
+    }
+}
+
+// Count vents > 1
+let count = 0;
+let _values = values(vents);
+for (let i = 0; i < len(_values); i = i + 1) {
+    if (_values[i] > 1) {
+        count = count + 1;
+    }
+}
+assert(count, 8622);
+
+// Part two
+let gen_diagonal_points = func(p1, p2) {
+    let step_x = 0;
+    let step_y = 0;
+
+    if (p1[0] < p2[0]) {
+        step_x = 1;
+    }
+    if (p2[0] < p1[0]) {
+        step_x = -1;
+    }
+
+    if (p1[1] < p2[1]) {
+        step_y = 1;
+    }
+    if (p2[1] < p1[1]) {
+        step_y = -1;
+    }
+
+    let points = [];
+    let current = p1;
+    while (current[0] != p2[0] and current[1] != p2[1]) {
+        points.append(str(current[0]) + "," + str(current[1]));
+        current = [
+            current[0] + step_x,
+            current[1] + step_y
+        ];
+    }
+    points.append(str(current[0]) + "," + str(current[1]));
+    return points;
+};
+
+for (let i = 0; i < len(paths); i = i + 1) {
+    let from = paths[i][0]; // x1, y1
+    let to = paths[i][1]; // x2, y2
+
+    // Diagonal line
+    if (from[0] != to[0] and from[1] != to[1]) {
+        let diagonals = gen_diagonal_points(from, to);
+        for (let j = 0; j < len(diagonals); j = j + 1) {
+            add_point(diagonals[j]);
+        }
+    }
+}
+
+// Recount vents > 1
+count = 0;
+_values = values(vents);
+for (let i = 0; i < len(_values); i = i + 1) {
+    if (_values[i] > 1) {
+        count = count + 1;
+    }
+}
+assert(count, 22037);
