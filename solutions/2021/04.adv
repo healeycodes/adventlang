@@ -1,4 +1,4 @@
-let ds = import("lib/datastructures.adv");
+let ds = import("lib/datastructs.adv");
 let utils = import("lib/utils.adv");
 let string = import("lib/string.adv");
 
