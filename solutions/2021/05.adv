@@ -1,0 +1,65 @@
+let ds = import("lib/datastructures.adv");
+let utils = import("lib/utils.adv");
+let string = import("lib/string.adv");
+let math = import("lib/math.adv");
+
+let paths = [];
+read_lines("solutions/2021/data/05.txt", func(s) {
+    let numify = func (n) { return num(n) };
+    let points = string.split(s, " ");
+    paths.append(
+        [
+            // from
+            utils.map(
+                string.split(points[0], ","),
+                numify
+            ),
+            // to
+            utils.map(
+                string.split(points[2], ","),
+                numify
+            )
+        ]
+    );
+});
+
+let vents = {};
+let add_point = func(point) {
+    if (vents[point] == undefined) {
+        vents[point] = 1;
+    } else {
+        vents[point] = vents[point] + 1;
+    }
+};
+
+for (let i = 0; i < len(paths); i = i + 1) {
+    let from = paths[i][0]; // x1, y1
+    let to = paths[i][1]; // x2, y2
+    if (from[0] == to[0]) {
+        // Vertical line
+        let a = math.min(from[1], to[1]);
+        let b = math.max(from[1], to[1]);
+        for (let j = a; j <= b; j = j + 1) {
+            add_point(str(from[0]) + "," + str(j));
+        }
+    } 
+
+    // Horizontal line    
+    if (from[1] == to[1]) {
+        let a = math.min(from[0], to[0]);
+        let b = math.max(from[0], to[0]);
+        for (let j = a; j <= b; j = j + 1) {
+            add_point(str(j) + "," + str(from[1]));
+        }
+    }
+}
+
+// Count vents > 1
+let count = 0;
+let _values = values(vents);
+for (let i = 0; i < len(_values); i = i + 1) {
+    if (_values[i] > 1) {
+        count = count + 1;
+    }
+}
+assert(count, 8622);

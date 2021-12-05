@@ -1253,7 +1253,6 @@ func evalCallChain(frame *StackFrame, value Value, callChain *CallChain) (Value,
 			if err != nil {
 				return nil, err
 			}
-			// TODO: do we need to unwrap here?
 			if function, okFunction := value.(FunctionValue); okFunction {
 				value, err = function.Exec(callChain.Pos.String(), args)
 				if err != nil {

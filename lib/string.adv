@@ -21,3 +21,20 @@ let split = func(s, by) {
 assert(len(split("a,b", ",")), 2);
 assert(split("a,b", ",")[0], "a");
 assert(split("a,b", ",")[1], "b");
+
+let join = func(l, by) {
+    let ret = "";
+    for (let i = 0; i < len(l); i = i + 1) {
+        if (i != 0) {
+            ret = ret + by + str(l[i]);
+        } else {
+            ret = str(l[i]);
+        }
+    }
+    return ret
+};
+(func() {
+    let l1 = [1, 2];
+    assert(join(l1, ","), "1,2");
+    assert(join(["a"], ","), "a");
+})();

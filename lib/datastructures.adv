@@ -33,3 +33,28 @@ let str_set = func(list) {
     my_set.add(1);
     assert(my_set.has("1"), true);
 })();
+
+let set = func(list) {
+    let to_key = func(k) { return type(k) + str(k) };
+    let store = {};
+    if (type(list) == "list") {
+        for (let i = 0; i < len(list); i = i + 1) {
+            let key = to_key(list[i]);
+            store[key] = true;
+        }
+    }
+    return {
+        "add": func(x) { store[to_key(x)] = true; },
+        "has": func(x) { return store[to_key(x)] == true }
+    }
+};
+(func() {
+    let my_set = set([]);
+    my_set.add("a");
+    assert(my_set.has("a"), true);
+    assert(my_set.has("b"), false);
+
+    // Don't auto-convert num -> str
+    my_set.add(1);
+    assert(my_set.has("1"), false);
+})();

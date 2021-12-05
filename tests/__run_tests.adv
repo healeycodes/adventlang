@@ -4,7 +4,7 @@ let t = time();
 // we'll exit status 1 on any failures
 import("lib/datastructures.adv");
 import("lib/utils.adv");
-import("lib/str.adv");
+import("lib/string.adv");
 import("lib/math.adv");
 import("tests/advent_2019_1.adv");
 import("tests/logic.adv");
