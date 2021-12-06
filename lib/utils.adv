@@ -63,3 +63,30 @@ let concat = func(l1, l2) {
     // Shouldn't error
     concat(l1, []);
 })();
+
+let slice = func(l, from, to) {
+    let ret = [];
+    for (let i = from; i < to; i = i + 1) {
+        ret.append(l[i]);
+    }
+    return ret
+};
+(func() {
+    let l1 = [0, 1, 2, 3];
+    let sliced = slice(l1, 1, 3);
+    assert(len(sliced), 2);
+    assert(sliced[0], 1);
+    assert(sliced[1], 2);
+})();
+
+let foreach = func(l, f) {
+    for (let i = 0; i < len(l); i = i + 1) {
+        f(l[i]);
+    }
+};
+(func() {
+    let sum = 0;
+    let l1 = [0, 1, 2, 3];
+    foreach(l1, func(item) { sum = sum + item; });
+    assert(sum, 6);
+})();

@@ -1,0 +1,59 @@
+let ds = import("lib/datastructs.adv");
+let utils = import("lib/utils.adv");
+let string = import("lib/string.adv");
+let math = import("lib/math.adv");
+
+let lines = [];
+read_lines("solutions/2021/data/06.txt", func(s) {
+    lines.append(string.split(s, ","));
+});
+let start_state = lines[0];
+
+let fishes = {
+    "0": 0,
+    "1": 0,
+    "2": 0,
+    "3": 0,
+    "4": 0,
+    "5": 0,
+    "6": 0,
+    "7": 0,
+    "8": 0
+};
+
+utils.foreach(start_state, func(fish) {
+    fishes[fish] = fishes[fish] + 1;
+});
+
+let cycle = func() {
+    let next = {
+        "0": fishes[1],
+        "1": fishes[2],
+        "2": fishes[3],
+        "3": fishes[4],
+        "4": fishes[5],
+        "5": fishes[6],
+        "6": fishes[7] + fishes[0],
+        "7": fishes[8],
+        "8": fishes[0]
+    };
+    utils.foreach(keys(fishes), func(k) {
+        fishes[k] = next[k];
+    });
+};
+
+// Part one
+for (let i = 0; i < 80; i = i + 1) {
+    cycle();
+}
+let sum = 0;
+utils.foreach(values(fishes), func(n) { sum = sum + n; });
+assert(sum, 358214);
+
+// Part two
+for (let i = 0; i < 256 - 80; i = i + 1) {
+    cycle();
+}
+sum = 0;
+utils.foreach(values(fishes), func(n) { sum = sum + n; });
+assert(sum, 1622533344325);

@@ -25,5 +25,6 @@ import("solutions/2021/02.adv");
 import("solutions/2021/03.adv");
 import("solutions/2021/04.adv");
 import("solutions/2021/05.adv");
+import("solutions/2021/06.adv");
 
 "all tests passed in " + str(time() - t) + "ms";
