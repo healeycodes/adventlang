@@ -90,3 +90,28 @@ let foreach = func(l, f) {
     foreach(l1, func(item) { sum = sum + item; });
     assert(sum, 6);
 })();
+
+let sort = func (l) {
+    if (len(l) <= 1) {
+        return l;
+    }
+    let pivot = l[0];
+    let left = []; 
+    let right = [];
+    for (let i = 1; i < len(l); i = i + 1) {
+        if (l[i] < pivot) {
+            left.append(l[i]);
+        } else {
+            right.append(l[i]);
+        }
+    }
+    let ret = sort(left);
+    ret.append(pivot);
+    let rest = sort(right);
+    for (let i = 0; i < len(rest); i = i + 1) {
+        ret.append(rest[i]);
+    }
+    return ret;
+};
+assert(sort([2, 1, 0])[0], 0);
+assert(sort([3, 1, -1])[2], 3);

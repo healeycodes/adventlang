@@ -1,0 +1,40 @@
+let ds = import("lib/datastructs.adv");
+let utils = import("lib/utils.adv");
+let string = import("lib/string.adv");
+let math = import("lib/math.adv");
+
+let lines = [];
+read_lines("solutions/2021/data/07.txt", func(s) {
+    lines.append(
+        utils.map(
+            string.split(s, ","),
+            func(n) { return num(n) }
+        )
+    );
+});
+let crabs = lines[0];
+
+// Part one
+let sorted = utils.sort(crabs);
+let median = sorted[floor(len(crabs) / 2)];
+let cost = 0;
+for (let i = 0; i < len(crabs); i = i + 1) {
+    cost = cost + math.abs(crabs[i] - median);
+}
+assert(cost, 357353);
+
+// Part two
+let sum = 0;
+utils.foreach(crabs, func(n) { sum = sum + n; });
+let lo_mean = floor(sum / len(crabs));
+let hi_mean = floor(sum / len(crabs)) + 1;
+let lo_mean_cost = 0;
+let hi_mean_cost = 0;
+utils.foreach(crabs, func(n) {
+    let lo_mean_dist = math.abs(n - lo_mean);
+    let hi_mean_dist = math.abs(n - hi_mean);
+    lo_mean_cost = lo_mean_cost + (lo_mean_dist * (lo_mean_dist + 1)) / 2;
+    hi_mean_cost = hi_mean_cost + (hi_mean_dist * (hi_mean_dist + 1)) / 2;
+});
+cost = math.min(lo_mean_cost, hi_mean_cost);
+assert(cost, 104822130);

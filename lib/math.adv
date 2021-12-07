@@ -30,3 +30,35 @@ let binary_to_decimal = func(b) {
 };
 assert(binary_to_decimal(0), 0);
 assert(binary_to_decimal(10101001), 169);
+
+let abs = func(x) {
+    if (x < 0) {
+        return -x
+    }
+    return x
+};
+assert(abs(2), 2);
+assert(abs(-2), 2);
+assert(abs(0), 0);
+
+let min_list = func(l) {
+    let _min = l[0];
+    for (let i = 0; i < len(l); i = i + 1) {
+        if (l[i] < _min) {
+            _min = l[i];
+        }
+    }
+    return _min
+};
+assert(min_list([0, 1]), 0);
+
+let max_list = func(l) {
+    let max = l[0];
+    for (let i = 0; i < len(l); i = i + 1) {
+        if (l[i] > max) {
+            max = l[i];
+        }
+    }
+    return max
+};
+assert(max_list([0, 1]), 1);
