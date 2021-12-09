@@ -62,3 +62,12 @@ let max_list = func(l) {
     return max
 };
 assert(max_list([0, 1]), 1);
+
+let sum_list = func(l) {
+    let ret = 0;
+    for (let i = 0; i < len(l); i = i + 1) {
+        ret = ret + l[i];
+    }
+    return ret
+};
+assert(sum_list([1, 2]), 3);

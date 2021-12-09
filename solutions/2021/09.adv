@@ -1,0 +1,45 @@
+let utils = import("lib/utils.adv");
+let string = import("lib/string.adv");
+let math = import("lib/math.adv");
+
+let points = [];
+read_lines("solutions/2021/data/09.txt", func(s) {
+    points.append(
+        utils.map(
+            string.split(s, ""),
+            func(n) { return num(n) }
+        )
+    );
+});
+
+let low_points = [];
+for (let i = 0; i < len(points); i = i + 1) {
+    for (let j = 0; j < len(points[i]); j = j + 1) {
+        // Left
+        if (j > 0) {
+            if (points[i][j - 1] <= points[i][j]) {
+                continue
+            }
+        }
+        // Right
+        if (j < len(points[i]) - 1) {
+            if (points[i][j + 1] <= points[i][j]) {
+                continue
+            }
+        }
+        // Up
+        if (i > 0) {
+            if (points[i - 1][j] <= points[i][j]) {
+                continue
+            }
+        }
+        // Down
+        if (i < len(points) - 1) {
+            if (points[i + 1][j] <= points[i][j]) {
+                continue
+            }
+        }
+        low_points.append(1 + points[i][j]);
+    }
+}
+assert(math.sum_list(low_points), 475);
