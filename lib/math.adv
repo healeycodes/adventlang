@@ -53,13 +53,13 @@ let min_list = func(l) {
 assert(min_list([0, 1]), 0);
 
 let max_list = func(l) {
-    let max = l[0];
+    let _max = l[0];
     for (let i = 0; i < len(l); i = i + 1) {
-        if (l[i] > max) {
-            max = l[i];
+        if (l[i] > _max) {
+            _max = l[i];
         }
     }
-    return max
+    return _max
 };
 assert(max_list([0, 1]), 1);
 
