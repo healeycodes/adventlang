@@ -1,0 +1,65 @@
+let utils = import("lib/utils.adv");
+
+let lines = [];
+read_lines("solutions/2021/data/10.txt", func(s) {
+    lines.append(s);
+});
+
+let error_score = {
+    ")": 3,
+    "]": 57,
+    "}": 1197,
+    ">": 25137
+};
+let errors = 0;
+
+for (let i = 0; i < len(lines); i = i + 1) {
+    let syntax_counter = {
+        "{": 0,
+        "(": 0,
+        "[": 0,
+        "<": 0
+    };
+    for (let j = 0; j < len(lines[i]); j = j + 1) {
+        let char = lines[i][j];
+        if (char == "{" or char == "(" or char == "[" or char == "<") {
+            syntax_counter[char] = syntax_counter[char] + 1;
+            continue
+        }
+
+        if (char == "}") {
+            if (syntax_counter["{"] == 0) {
+                errors = errors + error_score["}"];
+                break
+            }
+            syntax_counter["{"] = syntax_counter["{"] - 1;
+            continue
+        }
+        if (char == ")") {
+            if (syntax_counter["("] == 0) {
+                errors = errors + error_score[")"];
+                break
+            }
+            syntax_counter["("] = syntax_counter["("] - 1;
+            continue
+        }
+        if (char == "]") {
+            if (syntax_counter["["] == 0) {
+                errors = errors + error_score["]"];
+                break
+            }
+            syntax_counter["["] = syntax_counter["["] - 1;
+            continue
+        }
+        if (char == ">") {
+            if (syntax_counter["<"] == 0) {
+                errors = errors + error_score[">"];
+                break
+            }
+            syntax_counter["<"] = syntax_counter["<"] - 1;
+            continue
+        }
+    }
+}
+
+log(errors);
