@@ -39,3 +39,32 @@ for (let i = 0; i < len(lines); i = i + 1) {
     }
 }
 assert(errors, 321237);
+
+// Part two
+let autocomplete_scores = [];
+let fix_cost = {
+    "(": 1,
+    "[": 2,
+    "{": 3,
+    "<": 4
+};
+for (let i = 0; i < len(incomplete_lines); i = i + 1) {
+    let autocomplete_score = 0;
+    let syntax_stack = [];
+    for (let j = 0; j < len(incomplete_lines[i]); j = j + 1) {
+        let char = incomplete_lines[i][j];
+        if (pairs[char] != undefined) {
+            let opening = syntax_stack.pop();
+            continue
+        }
+        syntax_stack.append(char);
+    }
+    utils.map(
+        utils.reverse(syntax_stack), func(char) {
+            autocomplete_score = (autocomplete_score * 5) + fix_cost[char];
+    });
+    autocomplete_scores.append(autocomplete_score);
+}
+autocomplete_scores = utils.sort(autocomplete_scores);
+let median_score = autocomplete_scores[len(autocomplete_scores) / 2];
+assert(median_score, 2360030859);
