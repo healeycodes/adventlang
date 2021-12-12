@@ -30,7 +30,7 @@
         }
     </style>
     <script>
-        const workerPool = [];
+        let workerPool = [];
 
         const input = document.querySelector(".input");
         const output = document.querySelector(".output");
@@ -47,26 +47,45 @@ for (let i = 0; i < 10; i = i + 1) {
 loop_count;`;
         input.value = data;
 
+        // Retrieve an idle worker or spawn a new one
         function getWorker() {
             let worker = workerPool.find(worker => worker.ready);
             if (!worker) {
-                worker = { running: false, instance: new Worker('worker.js') }
+                worker = { id: Math.random(), ready: true, instance: new Worker('worker.js') }
             }
             workerPool.push(worker);
             return worker
         }
-        getWorker(); // Start pool with one idle worker
 
+        // Start pool with one idle worker
+        getWorker();
+
+        // Terminate and remove any running workers
+        // apart from `id`
+        function garbageCollect(id) {
+            const tempPool = [];
+            workerPool.forEach(worker => {
+                if (worker.id != id) {
+                    worker.instance.terminate();
+                } else {
+                    // Reset workerPool to only contain this worker
+                    tempPool.push(worker);
+                }
+            })
+            workerPool = tempPool;
+        }
+
+        // Execute input code via worker and display resulting output
         function run() {
             const worker = getWorker();
             worker.ready = false;
             const result = worker.instance.postMessage(input.value);
-
             worker.instance.onmessage = (e) => {
                 output.style.visibility = "visible";
                 output.value = e.data[0];
                 stats.innerHTML = `<i>${e.data[1]}ms</i>`;
                 worker.ready = true;
+                garbageCollect(worker.id);
             }
         }
     </script>
