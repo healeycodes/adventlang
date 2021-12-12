@@ -12,54 +12,30 @@ let error_score = {
     ">": 25137
 };
 let errors = 0;
+let pairs = {")": "(", "]": "[", "}": "{", ">": "<"};
+let incomplete_lines = [];
 
+// Part one
 for (let i = 0; i < len(lines); i = i + 1) {
-    let syntax_counter = {
-        "{": 0,
-        "(": 0,
-        "[": 0,
-        "<": 0
-    };
+    
+    // Preemptively add line as incomplete
+    incomplete_lines.append(lines[i]);
+
+    let syntax_stack = [];
     for (let j = 0; j < len(lines[i]); j = j + 1) {
         let char = lines[i][j];
-        if (char == "{" or char == "(" or char == "[" or char == "<") {
-            syntax_counter[char] = syntax_counter[char] + 1;
-            continue
-        }
+        if (pairs[char] != undefined) {
+            let opening = syntax_stack.pop();
+            if (opening != pairs[char]) {
+                errors = errors + error_score[char];
 
-        if (char == "}") {
-            if (syntax_counter["{"] == 0) {
-                errors = errors + error_score["}"];
+                // Turns out it that line was actually corrupt!
+                incomplete_lines.pop();
                 break
             }
-            syntax_counter["{"] = syntax_counter["{"] - 1;
             continue
         }
-        if (char == ")") {
-            if (syntax_counter["("] == 0) {
-                errors = errors + error_score[")"];
-                break
-            }
-            syntax_counter["("] = syntax_counter["("] - 1;
-            continue
-        }
-        if (char == "]") {
-            if (syntax_counter["["] == 0) {
-                errors = errors + error_score["]"];
-                break
-            }
-            syntax_counter["["] = syntax_counter["["] - 1;
-            continue
-        }
-        if (char == ">") {
-            if (syntax_counter["<"] == 0) {
-                errors = errors + error_score[">"];
-                break
-            }
-            syntax_counter["<"] = syntax_counter["<"] - 1;
-            continue
-        }
+        syntax_stack.append(char);
     }
 }
-
-log(errors);
+assert(errors, 321237);
