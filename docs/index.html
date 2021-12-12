@@ -52,8 +52,8 @@ loop_count;`;
             let worker = workerPool.find(worker => worker.ready);
             if (!worker) {
                 worker = { id: Math.random(), ready: true, instance: new Worker('worker.js') }
+                workerPool.push(worker);
             }
-            workerPool.push(worker);
             return worker
         }
 
