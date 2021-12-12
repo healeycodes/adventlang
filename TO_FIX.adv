@@ -1,0 +1,5 @@
+// Fails due to index reference bug
+let s = "abc";
+assert(s[1], "b");
+let a = [s];
+assert(a[0][1], "b");
