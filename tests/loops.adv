@@ -40,6 +40,16 @@ for (let i = 0; i < 10; i = i + 1) {
     assert(true, false);
 }
 
+let count = 0;
+for (let i = 0; i < 10; i = i + 1) {
+    for (let j = 0; j < 10; j = j + 1) {
+        // Just skip the nested loop
+        continue
+    }
+    count = count + 1;
+}
+assert(count, 10);
+
 let a = false;
 while (true) {
     while (true) {
