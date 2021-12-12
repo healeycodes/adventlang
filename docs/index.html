@@ -30,6 +30,7 @@
         }
     </style>
     <script>
+        // Any running web workers
         let workerPool = [];
 
         const input = document.querySelector(".input");
@@ -60,8 +61,7 @@ loop_count;`;
         // Start pool with one idle worker
         getWorker();
 
-        // Terminate and remove any running workers
-        // apart from `id`
+        // Terminate and remove any running workers _apart_ from `id`
         function garbageCollect(id) {
             const tempPool = [];
             workerPool.forEach(worker => {
