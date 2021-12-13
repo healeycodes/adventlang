@@ -98,8 +98,8 @@ log("fib_memo: " + str(time() - t) + "ms");`,
     }
     return ret;
 };
-assert(sort([2, 1, 0])[0], 0);
-assert(sort([3, 1, -1])[2], 3);`,
+
+sort([2, 1, 0]);`,
             set: `let set = func(list) {
     let to_key = func(k) { return type(k) + str(k) };
     let store = {};
@@ -114,16 +114,9 @@ assert(sort([3, 1, -1])[2], 3);`,
         "has": func(x) { return store[to_key(x)] == true }
     }
 };
-(func() {
-    let my_set = set([]);
-    my_set.add("a");
-    assert(my_set.has("a"), true);
-    assert(my_set.has("b"), false);
 
-    // Don't auto-convert num -> str
-    my_set.add(1);
-    assert(my_set.has("1"), false);
-})();`
+let my_set = set(["c"]);
+my_set.has("a");`
         }
 
         // Maintain at least one idle or running worker
