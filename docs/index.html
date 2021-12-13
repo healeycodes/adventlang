@@ -1,6 +1,7 @@
 <html>
 
 <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Adventlang Playground</title>
     <meta name="description" content="A lil WebAssembly code playground for Adventlang." />
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
@@ -17,6 +18,12 @@
     <p>See Adventlang code examples in <a href="https://github.com/healeycodes/adventlang/tree/main/tests">/tests</a> or
         <a href="https://github.com/healeycodes/adventlang/tree/main/solutions/2021">/solutions/2021</a>
     </p>
+    <select class="examples">
+        <option value="intro">Intro</option>
+        <option selected value="fibonacci">Fibonacci</option>
+        <option value="quicksort">Quicksort</option>
+        <option value="set">Set Data Structure</option>
+    </select>
     <textarea rows="13" class="code input"></textarea>
     <button onclick="run()">Run</button>
     <span class="stats"></span>
@@ -32,14 +39,9 @@
         }
     </style>
     <script>
-        // Any running web workers
-        let workerPool = [];
-
-        const input = document.querySelector(".input");
-        const output = document.querySelector(".output");
-        const stats = document.querySelector(".stats");
-        let data = `// log() prints to developer console
-log("Hello, World!");
+        // Examples
+        const examples = {
+            intro: `log("Hello, World!");
 
 let loop_count = 0;
 for (let i = 0; i < 10; i = i + 1) {
@@ -47,7 +49,87 @@ for (let i = 0; i < 10; i = i + 1) {
 }
 
 // Final value is output below like in the CLI
-loop_count;`;
+loop_count;`,
+            fibonacci: `// Naive
+let t = time();
+let fib = func(n) {
+    if (n == 0 or n == 1) {
+        return n
+    }
+    return fib(n - 1) + fib(n - 2)
+};
+fib(15);
+log("fib: " + str(time() - t) + "ms");
+
+// With memoization 
+t = time();
+let cache = {"0": 0, "1": 1};
+let fib_memo = func(n) {
+    if (cache[n] != undefined) {
+        return cache[n]
+    }
+    cache[n] = fib_memo(n - 1) + fib_memo(n - 2);
+    return cache[n]
+};
+fib_memo(15);
+log("fib_memo: " + str(time() - t) + "ms");`,
+            quicksort: `let sort = func (l) {
+    if (len(l) <= 1) {
+        return l;
+    }
+    let pivot = l[0];
+    let left = []; 
+    let right = [];
+    for (let i = 1; i < len(l); i = i + 1) {
+        if (l[i] < pivot) {
+            left.append(l[i]);
+        } else {
+            right.append(l[i]);
+        }
+    }
+    let ret = sort(left);
+    ret.append(pivot);
+    let rest = sort(right);
+    for (let i = 0; i < len(rest); i = i + 1) {
+        ret.append(rest[i]);
+    }
+    return ret;
+};
+assert(sort([2, 1, 0])[0], 0);
+assert(sort([3, 1, -1])[2], 3);`,
+            set: `let set = func(list) {
+    let to_key = func(k) { return type(k) + str(k) };
+    let store = {};
+    if (type(list) == "list") {
+        for (let i = 0; i < len(list); i = i + 1) {
+            let key = to_key(list[i]);
+            store[key] = true;
+        }
+    }
+    return {
+        "add": func(x) { store[to_key(x)] = true; },
+        "has": func(x) { return store[to_key(x)] == true }
+    }
+};
+(func() {
+    let my_set = set([]);
+    my_set.add("a");
+    assert(my_set.has("a"), true);
+    assert(my_set.has("b"), false);
+
+    // Don't auto-convert num -> str
+    my_set.add(1);
+    assert(my_set.has("1"), false);
+})();`
+        }
+
+        // Maintain at least one idle or running worker
+        let workerPool = [];
+
+        const input = document.querySelector(".input");
+        const output = document.querySelector(".output");
+        const stats = document.querySelector(".stats");
+        let data = examples.fibonacci;
         input.value = data;
 
         // Retrieve an idle worker or spawn a new one
@@ -65,30 +147,37 @@ loop_count;`;
 
         // Terminate and remove any running workers _apart_ from `id`
         function garbageCollect(id) {
-            const tempPool = [];
             workerPool.forEach(worker => {
                 if (worker.id != id) {
                     worker.instance.terminate();
-                } else {
-                    // Reset workerPool to only contain this worker
-                    tempPool.push(worker);
                 }
             })
-            workerPool = tempPool;
+            workerPool = workerPool.filter(worker => worker.id == id);
         }
 
         // Execute input code via worker and display resulting output
         function run() {
+            stats.innerHTML = `<i>..</i>`;
+
             const worker = getWorker();
             worker.ready = false;
             const result = worker.instance.postMessage(input.value);
+
+            // Kill any other running workers (they're stale now)
+            garbageCollect(worker.id);
+
             worker.instance.onmessage = (e) => {
                 output.style.visibility = "visible";
                 output.value = e.data[0];
                 stats.innerHTML = `<i>${e.data[1]}ms</i>`;
                 worker.ready = true;
-                garbageCollect(worker.id);
             }
+        }
+
+        // Set up example dropdown
+        document.querySelector(`.examples`).onchange = function () {
+            data = examples[this.value];
+            input.value = examples[this.value];
         }
     </script>
 </body>
