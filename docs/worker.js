@@ -22,6 +22,9 @@ onmessage = async (e) => {
   let logs = "";
   self.console.log = (s) => (logs += `${s}\n`);
 
-  const result = self.adventlang(e.data);
-  postMessage([`${logs}` + result, Date.now() - start]);
+  // Don't capture the result returned here
+  // (aka the final statement value)
+  self.adventlang(e.data);
+
+  postMessage([`${logs}`, Date.now() - start]);
 };

@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"os"
 
 	"github.com/healeycodes/adventlang/pkg/adventlang"
@@ -17,11 +16,11 @@ func main() {
 	}
 
 	source := adventlang.ReadProgram(filename)
-	result, _, err := adventlang.RunProgram(filename, source)
+
+	// For now, don't print the final statement's value
+	_, _, err := adventlang.RunProgram(filename, source)
 	if err != nil {
 		println("uh oh.. while running: "+filename, err.Error(), "\n")
 		os.Exit(1)
 	}
-
-	fmt.Println(result)
 }

@@ -12,6 +12,8 @@ A strongly typed but highly dynamic programming language interpreter written in 
 log("Hello, World!");
 ```
 
+Try it out in the [code playground](https://healeycodes.github.io/adventlang/)!
+
 ### Why
 
 In the second half of November, I designed and implemented this programming language for Advent of Code (AoC). I'll be using it to solve AoC's daily puzzles and adding to the standard library as I go. Will this language make it easier for you to solve the puzzles? No, certainly not. Here be dragons, etc. But it will increase my level of fun as I tap into the joyous energy that comes with forced-creativity-through-restriction.

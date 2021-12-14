@@ -6,6 +6,7 @@
     <meta name="description" content="A lil WebAssembly code playground for Adventlang." />
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
+    <link rel="prefetch" href="worker.js">
     <link rel="prefetch" href="wasm_exec.js">
     <link rel="prefetch" href="adventlang.wasm">
 </head>
@@ -51,8 +52,7 @@ for (let i = 0; i < 10; i = i + 1) {
     loop_count = loop_count + 1;
 }
 
-// Final value is output below like in the CLI
-loop_count;`,
+log(loop_count);`,
             fibonacci: `// Naive
 let t = time();
 let fib = func(n) {
@@ -99,7 +99,7 @@ log("fib_memo: " + str(time() - t) + "ms");`,
     return ret;
 };
 
-sort([2, 1, 0]);`,
+log(sort([2, 1, 0]));`,
             set: `let set = func(list) {
     let to_key = func(k) { return type(k) + str(k) };
     let store = {};
@@ -116,7 +116,7 @@ sort([2, 1, 0]);`,
 };
 
 let my_set = set(["c"]);
-my_set.has("a");`
+log(my_set.has("a"));`
         }
 
         // Maintain at least one idle or running worker
