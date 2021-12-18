@@ -2,7 +2,7 @@
 
 # 🎅 Adventlang
 
-> My blog post: [Designing a Programming Language for Advent of Code](https://healeycodes.com/designing-a-programming-language-for-advent-of-code)
+> My blog posts: [Designing a Programming Language for Advent of Code](https://healeycodes.com/designing-a-programming-language-for-advent-of-code) and [Designing a Code Playground for Adventlang](https://healeycodes.com/designing-a-code-playground-for-adventlang)
 
 <br>
 
