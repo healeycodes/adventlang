@@ -91,6 +91,10 @@ python docs/dev.py
 
 And then Navigate to `http://localhost:8000`
 
+### Did You Complete AoC2021?
+
+😅 I solved nine and a half puzzles .. and got distracted building out the language, creating a code playground, and writing blog posts. 
+
 ### License
 
 MIT.
